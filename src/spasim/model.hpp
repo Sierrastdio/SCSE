@@ -13,6 +13,9 @@ namespace spasim {
 inline constexpr std::size_t kTeamCount = 4;
 inline constexpr std::size_t kPlayersPerTeam = 6;
 inline constexpr std::size_t kPlayerCapacity = kTeamCount * kPlayersPerTeam;
+// Leave entity storage room for static training targets as well as every player.
+inline constexpr std::size_t kPracticeShipCount = kTeamCount;
+inline constexpr std::size_t kEntityCapacity = kPlayerCapacity + kPracticeShipCount;
 inline constexpr std::size_t kPlanetCount = 4;
 inline constexpr std::size_t kWeaponCount = 4;
 
@@ -20,6 +23,7 @@ using PlayerId = std::uint32_t;
 using EntityId = std::uint32_t;
 using PlanetId = std::uint8_t;
 using TeamId = std::uint8_t;
+inline constexpr PlayerId kNoPlayer = UINT32_MAX;
 
 struct Vec3 {
     double x{};
@@ -58,17 +62,34 @@ struct CombatState {
     bool destroyed{};
 };
 
+struct WeaponProfile {
+    std::string name;
+    double energyCost{};
+    double damage{};
+    double range{};
+    double projectileSpeed{};
+    bool explosive{};
+    double splashRadius{};
+};
+
 struct Ship {
     EntityId id{};
-    PlayerId owner{};
+    PlayerId owner{kNoPlayer};
     TeamId team{};
+    std::string name;
     Vec3 position{};
+    Vec3 velocity{}; // Inertial world-units per second; heading and velocity are independent.
     Orientation orientation{};
+    Orientation desiredOrientation{};
+    double turnRateDegreesPerSecond{30.0};
     double speed{};
     double warp{};
     AccelerationMode acceleration{AccelerationMode::Cruise};
     Resources resources{};
     CombatState combat{};
+    double collisionRadius{20.0};
+    std::optional<PlanetId> orbitingPlanet;
+    bool playerControlled{};
     bool exists{true};
 };
 
@@ -80,6 +101,7 @@ struct Base {
     Vec3 position{};
     Resources resources{};
     CombatState combat{};
+    double collisionRadius{50.0};
     bool exists{true};
 };
 
@@ -92,9 +114,18 @@ struct Torpedo {
     double energy{};
     double warp{};
     double fieldStrength{};
+    double damage{};
+    double lifeSeconds{};
+    double collisionRadius{2.0};
     bool controlled{};
     bool detonated{};
     bool exists{};
+};
+
+struct Target {
+    enum class Kind : std::uint8_t { Entity, Planet };
+    Kind kind{Kind::Entity};
+    std::uint32_t id{};
 };
 
 struct Player {
@@ -106,10 +137,11 @@ struct Player {
     EntityId baseId{};
     EntityId torpedoId{};
     EntityId selectedObject{};
-    std::optional<EntityId> goal;
+    std::optional<Target> goal;
     double phasorPower{1.0};
     double phasorDiameter{1.0};
     WeaponKind weapon{WeaponKind::Aggstroms};
+    std::optional<EntityId> selectedTarget;
     bool phasorEnabled{};
     bool joined{};
 };
@@ -118,6 +150,9 @@ struct Planet {
     PlanetId id{};
     std::string name;
     Vec3 position{};
+    double radius{30.0};
+    double gravitationalParameter{1000.0}; // G * mass in the simulation's world units.
+    double parkingOrbitAltitude{90.0};
     double population{};
     double antiEntropy{};
     double rawMaterial{};
@@ -137,14 +172,19 @@ struct World {
     std::array<Team, kTeamCount> teams{};
     std::array<Planet, kPlanetCount> planets{};
     std::array<std::optional<Player>, kPlayerCapacity> playerSlots{};
-    std::vector<Ship> ships;
-    std::vector<Base> bases;
-    std::vector<Torpedo> torpedoes;
+    // Fixed-capacity slot stores keep references stable and make iteration predictable.
+    std::array<std::optional<Ship>, kEntityCapacity> ships{};
+    std::array<std::optional<Base>, kEntityCapacity> bases{};
+    std::array<std::optional<Torpedo>, kEntityCapacity> torpedoes{};
     std::uint64_t tick{};
     double elapsedSeconds{};
     double fixedStepSeconds{0.1};
     std::mt19937_64 random{0x53504153494DULL};
     EntityId nextEntityId{1};
+    bool friendlyFire{};
+    bool paused{};
+    double sessionDurationSeconds{900.0};
+    std::array<WeaponProfile, kWeaponCount> weapons{};
 
     [[nodiscard]] const Player* findPlayer(PlayerId id) const noexcept;
     [[nodiscard]] Player* findPlayer(PlayerId id) noexcept;
@@ -152,6 +192,8 @@ struct World {
     [[nodiscard]] const Ship* findShip(EntityId id) const noexcept;
     [[nodiscard]] Base* findBase(EntityId id) noexcept;
     [[nodiscard]] Torpedo* findTorpedo(EntityId id) noexcept;
+    [[nodiscard]] const Torpedo* findTorpedo(EntityId id) const noexcept;
+    [[nodiscard]] const Base* findBase(EntityId id) const noexcept;
     [[nodiscard]] std::size_t activePlayerCount(TeamId team) const noexcept;
 };
 

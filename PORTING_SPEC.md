@@ -10,6 +10,25 @@ Use three labels while implementing:
 - **Reconstructed**: inferred from executable expressions whose old-language operators are legible.
 - **Unknown**: depends on missing lessons/runtime or glyphs/formulas damaged by print conversion. Keep these behind named policy functions/configuration and do not silently present guesses as source facts.
 
+## Engine direction
+
+The reusable engine concept is **space simulation and ship-to-ship combat**. SPASIM remains the first ruleset and porting target; engine abstractions should be useful for other games without carrying terminal UI or SPASIM-specific command syntax into the core.
+
+An **entity** is any independently identified thing that exists in the simulated world and may have position, state, ownership or interactions. This includes friendly and hostile ships, bases, torpedoes, and potentially stations, debris, planets, sensors and projectiles. “Entity” describes identity/lifetime, not a requirement that every kind shares identical fields or behavior. Teams/factions describe relationships; they are not entity kinds. A player is a controller/session and may own or command several entities.
+
+### Engine work to prioritize
+
+1. **Unified entity identity and lifecycle**: stable IDs, explicit spawn/despawn, ownership/team, entity categories/components, and no ID aliasing between planets and entities.
+2. **Simulation contract**: fixed-step `step(dt)` with deterministic system order; commands are validated and queued/applied at tick boundaries; render/input never mutate simulation state directly.
+3. **Space movement**: explicit unit conventions, 3D transforms, velocity/acceleration/turn rate, target-relative navigation, collision radii, and configurable movement profiles. Keep exact SPASIM formulas isolated until decoded.
+4. **Combat model**: weapon profiles, acquisition/aiming, projectile/beam travel, range and line-of-fire, hit resolution, shield/hull layers, damage events and destruction. Separate weapon data from resolution algorithms.
+5. **Faction/target rules**: allied/enemy relations, friendly fire policy, target filters and ownership changes.
+6. **Events and observability**: emit structured events (fired, hit, shield depleted, destroyed, resource transferred) so console, future UI, replay and debugging observe the same core.
+7. **Scenario/configuration and persistence**: data-driven entities/weapons/planets, seeded RNG, versioned save state and scenario setup.
+8. **Performance only where measured**: current SPASIM scale is at most dozens of active slots, so fixed arrays are simple and fast. Design for interchangeable storage if worlds grow; add spatial partitioning only when profiling shows full scans are costly.
+
+Avoid speculative “universal ECS” machinery at this stage. A small typed model and focused systems are clearer; generalize after a second concrete game/scenario proves which abstractions repeat.
+
 ## Program identity and dependencies
 
 - The lesson header identifies the application as SPASIM, version 3.6, by Jim Bowery; description: three dimensional simulation of space.
@@ -90,16 +109,34 @@ Represent each legacy command as a function taking `(World&, PlayerId, CommandAr
 
 ### Current repository implementation
 
-The first structure pass now exists in `src/spasim/`:
+The structured core currently exists in `src/spasim/`:
 
 - `model.hpp`: `World`, `Team`, `Player`, `Ship`, `Base`, `Torpedo`, `Planet`, IDs, vectors, resources, combat and movement state.
 - `world.cpp`: four-team/four-planet initial world, 24 fixed player slots, deterministic random generator, team join/leave and entity lookup.
-- `simulation.cpp`: fixed-step dispatch, basic heading/acceleration movement and torpedo integration, plus initial `turn`, acceleration, goal and phasor command handling.
-- `command.cpp`: command-line vocabulary/parser.
+- `simulation.cpp`: fixed-step dispatch, basic heading/acceleration movement and torpedo integration, plus typed `WorldCommand` application.
+- `command.cpp`: console vocabulary/parser, translating strings into compact values before the UI calls the core.
 - `console.cpp`: separate terminal sign-on and status/team/planet presentation.
 - `main.cpp` and `CMakeLists.txt`: executable entry point and C++20 build.
 
-This is a structural scaffold, not yet a faithful rules port. Placeholder starting resources, simple movement, and inactive economy/hit resolution are explicitly provisional. Replace each only after reconciling source operators and common-memory initial values. `Player::goal` and planet target representation should be unified in the next model pass before implementing autonomous navigation.
+This is a structured core, not yet a faithful rules port. Placeholder starting resources, simple movement, and inactive economy/hit resolution are explicitly provisional. Replace each only after reconciling source operators and common-memory initial values. Goals are typed as entity or planet targets. The core intentionally has no real-time main loop yet; the application/engine loop should be added only after its simulation and input facilities are complete.
+
+The present implementation stores ships, bases and torpedoes in separate fixed-capacity arrays with shared `EntityId`s. This is a transitional typed design; a true unified entity registry/component layout is an engine improvement to schedule after source-rule recovery. Do not treat an integer `Target::id` as interchangeable across domains without checking `Target::kind`.
+
+The sample console now runs a fixed-step real-time loop while a dedicated input reader feeds a synchronized command queue. Simulation state is only mutated by the simulation thread. `pause`, `resume` and `tick` are available. The core still exposes explicit `step()` and has no wall-clock dependency.
+
+The console `turn x y z` input is interpreted as a desired forward direction vector, not yaw/pitch angles and not a world-space destination. The vector is converted to heading/pitch and the ship slews toward it at its configured turn rate. Status prints the current normalized facing vector and the internal yaw/pitch angles so a slow turn can be distinguished from a failed command.
+
+For debug rendering, `Simulation::writeSnapshot` exports entity/planet state as JSON without adding a graphics dependency to the core. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
+
+Current console-playable operations include team sign-on, status/team/planet listings, heading/acceleration, planet goals, target selection, four selectable weapon profiles, forward-arc phasor firing, torpedo launch/impact/detonation, base-range repair, planet loading, nearby entity resource transfer, and alliance toggles. These provide a coherent playable shell, but do not yet reproduce the whole 36-key menu or NOS station/network session behavior.
+
+### Playable implementation versus source fidelity
+
+- **Implemented as source-derived structure**: 4 teams, 6 player slots per team, ship/base/torpedo ownership slots, 4 planets, team names, object/resource concepts, commands present in the printed listing, fixed-step world ownership and a deterministic RNG seed.
+- **Implemented provisionally for playability**: scenario planet coordinates/resources, spawn offset, movement acceleration, hull/shield capacities, weapon energy/damage/range values, forward aiming threshold, torpedo velocity/lifetime/splash, repair distance/cost, transfer range, and console real-time period. The listing omits required common-memory constants and/or its number semantics for many of these.
+- **Not yet ported**: source-exact NOS operator/runtime semantics, source-exact 3D view projection and wireframe models, passive planet economy and revolt formula, weapon shape/penetration lookup tables, all menu command variants (messages, magnification/cursor/absolute view/backout/help integration), station-signaling concurrency, save/restore, external `spahelp`, `dogfight` and `spasimnote` lessons.
+
+Consequently this is now a runnable prototype of the game loop and main combat/logistics path, not a complete faithful translation. Completing faithful SPASIM requires the missing common-memory initialization and associated lessons or an authoritative readable source listing.
 
 ## Build phases and acceptance gates
 

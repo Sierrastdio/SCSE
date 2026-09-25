@@ -2,21 +2,27 @@
 
 #include "spasim/model.hpp"
 
-#include <optional>
-#include <string>
 #include <string_view>
-#include <vector>
 
 namespace spasim {
 
 enum class CommandKind : std::uint8_t {
-    Help, Status, Teams, Planets, Tick, Turn, Accelerate, Brake,
-    SetGoal, Fire, Quit, Unknown
+    Help, Status, Teams, Planets, Tick, Turn, Accelerate, Brake, Cruise,
+    SetGoal, Select, Fire, FireTorpedo, Detonate, SetWeapon, Repair,
+    Transfer, Load, Ally, Pause, Resume, Snapshot, Quit, Unknown
 };
 
 struct Command {
     CommandKind kind{CommandKind::Unknown};
-    std::vector<std::string> arguments;
+    double first{};
+    double second{};
+    double thirdValue{};
+    std::uint32_t target{};
+    std::string text;
+    bool hasFirst{};
+    bool hasSecond{};
+    bool hasThird{};
+    bool hasTarget{};
 };
 
 [[nodiscard]] Command parseCommand(std::string_view line);
