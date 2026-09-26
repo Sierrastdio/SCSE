@@ -3,24 +3,30 @@
 #include <algorithm>
 #include <cmath>
 
-namespace spasim::detail {
+namespace spasim::detail
+{
 
-CommandResult executeAction(World& world, Player& player, Ship& ship, const RepairVessel& action) {
+CommandResult executeAction(World& world, Player& player, Ship& ship, const RepairVessel& action)
+{
     if (!std::isfinite(action.amount) || action.amount <= 0.0)
         return {CommandStatus::Invalid, "Repair amount must be positive."};
 
     auto* base = world.findBase(player.baseId);
-    if (!base) return {CommandStatus::NotFound, "Home base not found."};
+    if (!base)
+        return {CommandStatus::NotFound, "Home base not found."};
     if (ship.position.distanceTo(base->position) > 100.0)
         return {CommandStatus::Invalid, "Return within 100 units of your base to repair."};
 
-    const double repaired = std::min({action.amount, ship.combat.hullDamage, ship.resources.energy});
+    const double repaired =
+        std::min({action.amount, ship.combat.hullDamage, ship.resources.energy});
     ship.combat.hullDamage -= repaired;
     ship.resources.energy -= repaired;
     return {CommandStatus::Applied, "Ship repaired."};
 }
 
-CommandResult executeAction(World& world, Player& player, Ship& ship, const TransferResources& action) {
+CommandResult
+executeAction(World& world, Player& player, Ship& ship, const TransferResources& action)
+{
     if (action.target.kind != Target::Kind::Entity || action.target.id == player.shipId)
         return {CommandStatus::Invalid, "Choose another ship or base as transfer target."};
 
@@ -42,8 +48,10 @@ CommandResult executeAction(World& world, Player& player, Ship& ship, const Tran
     return {CommandStatus::Applied, "Resources transferred."};
 }
 
-CommandResult executeAction(World& world, Player&, Ship& ship, const LoadFromPlanet& action) {
-    if (action.planet >= world.planets.size() || !std::isfinite(action.amount) || action.amount <= 0.0)
+CommandResult executeAction(World& world, Player&, Ship& ship, const LoadFromPlanet& action)
+{
+    if (action.planet >= world.planets.size() || !std::isfinite(action.amount) ||
+        action.amount <= 0.0)
         return {CommandStatus::Invalid, "Invalid planet or amount."};
 
     auto& planet = world.planets[action.planet];
@@ -58,7 +66,8 @@ CommandResult executeAction(World& world, Player&, Ship& ship, const LoadFromPla
     return {CommandStatus::Applied, "Planet resources loaded."};
 }
 
-CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& action) {
+CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& action)
+{
     if (action.first >= kTeamCount || action.second >= kTeamCount)
         return {CommandStatus::Invalid, "Team ID is out of range."};
 
@@ -67,7 +76,8 @@ CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& ac
     return {CommandStatus::Applied, "Alliance updated."};
 }
 
-void updateEconomy(World&) {
+void updateEconomy(World&)
+{
     // Planetary growth/revolt and autonomous resource transfer await recovered source formulas.
 }
 

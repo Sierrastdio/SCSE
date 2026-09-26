@@ -4,15 +4,39 @@
 
 #include <string_view>
 
-namespace spasim {
+namespace spasim
+{
 
-enum class CommandKind : std::uint8_t {
-    Help, Status, Teams, Planets, Tick, Turn, Accelerate, Brake, Cruise,
-    SetGoal, Select, Fire, FireTorpedo, Detonate, SetWeapon, Repair,
-    Transfer, Load, Ally, Pause, Resume, Snapshot, Quit, Unknown
+enum class CommandKind : std::uint8_t
+{
+    Help,
+    Status,
+    Teams,
+    Planets,
+    Tick,
+    Turn,
+    Accelerate,
+    Brake,
+    Cruise,
+    SetGoal,
+    Select,
+    Fire,
+    FireTorpedo,
+    Detonate,
+    SetWeapon,
+    Repair,
+    Transfer,
+    Load,
+    Ally,
+    Pause,
+    Resume,
+    Snapshot,
+    Quit,
+    Unknown
 };
 
-struct Command {
+struct Command
+{
     CommandKind kind{CommandKind::Unknown};
     double first{};
     double second{};

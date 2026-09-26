@@ -4,7 +4,8 @@
 
 #include <iostream>
 
-int main() {
+int main()
+{
     spasim::Simulation simulation{spasim::makeInitialWorld()};
     spasim::ConsoleApp app{simulation, std::cin, std::cout};
     return app.run();

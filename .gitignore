@@ -3,5 +3,4 @@
 *.sav
 /debug/world.json
 __pycache__/
-
 /.vscode/

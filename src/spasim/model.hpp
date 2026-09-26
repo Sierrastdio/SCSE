@@ -8,7 +8,8 @@
 #include <string>
 #include <vector>
 
-namespace spasim {
+namespace spasim
+{
 
 inline constexpr std::size_t kTeamCount = 4;
 inline constexpr std::size_t kPlayersPerTeam = 6;
@@ -25,7 +26,8 @@ using PlanetId = std::uint8_t;
 using TeamId = std::uint8_t;
 inline constexpr PlayerId kNoPlayer = UINT32_MAX;
 
-struct Vec3 {
+struct Vec3
+{
     double x{};
     double y{};
     double z{};
@@ -40,21 +42,40 @@ struct Vec3 {
 [[nodiscard]] Vec3 operator-(Vec3 lhs, const Vec3& rhs) noexcept;
 [[nodiscard]] Vec3 operator*(Vec3 value, double scalar) noexcept;
 
-struct Orientation {
+struct Orientation
+{
     double yawDegrees{};
     double pitchDegrees{};
 };
 
-enum class ObjectKind : std::uint8_t { Ship, Base, Torpedo };
-enum class WeaponKind : std::uint8_t { Aggstroms, Fouriers, Diffractions, Lasers };
-enum class AccelerationMode : std::uint8_t { Decelerate, Cruise, Accelerate };
+enum class ObjectKind : std::uint8_t
+{
+    Ship,
+    Base,
+    Torpedo
+};
+enum class WeaponKind : std::uint8_t
+{
+    Aggstroms,
+    Fouriers,
+    Diffractions,
+    Lasers
+};
+enum class AccelerationMode : std::uint8_t
+{
+    Decelerate,
+    Cruise,
+    Accelerate
+};
 
-struct Resources {
+struct Resources
+{
     double energy{};
     double rawMaterial{};
 };
 
-struct CombatState {
+struct CombatState
+{
     double hull{};
     double hullDamage{};
     double shields{};
@@ -62,7 +83,8 @@ struct CombatState {
     bool destroyed{};
 };
 
-struct WeaponProfile {
+struct WeaponProfile
+{
     std::string name;
     double energyCost{};
     double damage{};
@@ -72,7 +94,8 @@ struct WeaponProfile {
     double splashRadius{};
 };
 
-struct Ship {
+struct Ship
+{
     EntityId id{};
     PlayerId owner{kNoPlayer};
     TeamId team{};
@@ -93,7 +116,8 @@ struct Ship {
     bool exists{true};
 };
 
-struct Base {
+struct Base
+{
     EntityId id{};
     PlayerId owner{};
     TeamId team{};
@@ -105,7 +129,8 @@ struct Base {
     bool exists{true};
 };
 
-struct Torpedo {
+struct Torpedo
+{
     EntityId id{};
     PlayerId owner{};
     TeamId team{};
@@ -122,13 +147,19 @@ struct Torpedo {
     bool exists{};
 };
 
-struct Target {
-    enum class Kind : std::uint8_t { Entity, Planet };
+struct Target
+{
+    enum class Kind : std::uint8_t
+    {
+        Entity,
+        Planet
+    };
     Kind kind{Kind::Entity};
     std::uint32_t id{};
 };
 
-struct Player {
+struct Player
+{
     PlayerId id{};
     TeamId team{};
     std::string callSign;
@@ -146,7 +177,8 @@ struct Player {
     bool joined{};
 };
 
-struct Planet {
+struct Planet
+{
     PlanetId id{};
     std::string name;
     Vec3 position{};
@@ -162,13 +194,15 @@ struct Planet {
     double revoltAtSeconds{};
 };
 
-struct Team {
+struct Team
+{
     TeamId id{};
     std::string name;
     std::array<bool, kTeamCount> allied{};
 };
 
-struct World {
+struct World
+{
     std::array<Team, kTeamCount> teams{};
     std::array<Planet, kPlanetCount> planets{};
     std::array<std::optional<Player>, kPlayerCapacity> playerSlots{};

@@ -2,7 +2,8 @@
 
 #include "spasim/simulation.hpp"
 
-namespace spasim::detail {
+namespace spasim::detail
+{
 
 // Shared simulation math and world lookups used by individual systems.
 [[nodiscard]] Vec3 forwardVector(const Orientation& orientation);

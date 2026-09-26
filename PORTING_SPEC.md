@@ -179,3 +179,9 @@ Line references refer to numbered source statements printed in the attachment:
 | Console/status, wrapup and destruction | 1301–1464 |
 | Torpedo control/detonation and phasor | 1467–1574 |
 | Effects and session cleanup | 1576–1666 |
+
+
+
++ 추후 희망사항:
+- 함선 체급이 생긴 뒤로는 함선의 체급에 따라 궤도의 반치름(orbit level) 활동 가능을 정했으면 좋겠음. 궤도 레벨은 행성의 중력권(렌더러에서 노란 점선으로 표시는 그거)에서부터 orbit level 1로 제일 바깥쪽으로 시작하며 그 노란 선을 n등분 해서 각 단계를 level 2, 3, 4 정하는거임. 예를들어 소형함이면 행성의 모든 궤도 레벨을 다닐수 있는거고, 제일큰 함선이면 궤도의 깊숙한 높은 레벨에는 접근 못하는거임. 궤도를 바꾸는 자동 비행 기능 추가가 필요할듯.
+

@@ -2,9 +2,11 @@
 
 #include <cmath>
 
-namespace spasim::detail {
+namespace spasim::detail
+{
 
-CommandResult executeAction(World&, Player& player, Ship& ship, const SetHeading& action) {
+CommandResult executeAction(World&, Player& player, Ship& ship, const SetHeading& action)
+{
     if (!std::isfinite(action.direction.x) || !std::isfinite(action.direction.y) ||
         !std::isfinite(action.direction.z) || action.direction.length() <= 1e-9)
         return {CommandStatus::Invalid, "Direction vector must be finite and non-zero."};
@@ -14,14 +16,20 @@ CommandResult executeAction(World&, Player& player, Ship& ship, const SetHeading
     if (ship.acceleration == AccelerationMode::Accelerate)
         return {CommandStatus::Applied, "Facing set; the ship will thrust along it as it turns."};
     if (ship.acceleration == AccelerationMode::Decelerate)
-        return {CommandStatus::Applied, "Facing set; braking still opposes current velocity. Use accelerate to thrust along the new facing."};
-    return {CommandStatus::Applied, "Facing set; ship is coasting. Use accelerate to thrust along this direction."};
+        return {CommandStatus::Applied,
+                "Facing set; braking still opposes current velocity. Use accelerate to thrust "
+                "along the new facing."};
+    return {CommandStatus::Applied,
+            "Facing set; ship is coasting. Use accelerate to thrust along this direction."};
 }
 
-CommandResult executeAction(World&, Player&, Ship& ship, const SetAcceleration& action) {
+CommandResult executeAction(World&, Player&, Ship& ship, const SetAcceleration& action)
+{
     ship.acceleration = action.mode;
-    if (action.mode != AccelerationMode::Cruise) ship.orbitingPlanet.reset();
-    switch (action.mode) {
+    if (action.mode != AccelerationMode::Cruise)
+        ship.orbitingPlanet.reset();
+    switch (action.mode)
+    {
     case AccelerationMode::Accelerate:
         return {CommandStatus::Applied, "Engines applying thrust along the ship's facing."};
     case AccelerationMode::Decelerate:
@@ -32,26 +40,35 @@ CommandResult executeAction(World&, Player&, Ship& ship, const SetAcceleration& 
     return {CommandStatus::Invalid, "Unknown acceleration mode."};
 }
 
-CommandResult executeAction(World& world, Player& player, Ship& ship, const SetGoal& action) {
+CommandResult executeAction(World& world, Player& player, Ship& ship, const SetGoal& action)
+{
     auto* destination = positionOf(world, action.target);
-    if (!destination) return {CommandStatus::NotFound, "Goal target not found."};
+    if (!destination)
+        return {CommandStatus::NotFound, "Goal target not found."};
 
     player.goal = action.target;
     player.selectedTarget.reset();
     ship.orbitingPlanet.reset();
+    // A navigation goal is an autopilot command: it must keep applying thrust
+    // even when the ship was coasting after an orbit insertion or cruise order.
+    ship.acceleration = AccelerationMode::Accelerate;
     const Vec3 direction = *destination - ship.position;
-    if (direction.length() > 1e-9) ship.desiredOrientation = orientationToward(direction);
+    if (direction.length() > 1e-9)
+        ship.desiredOrientation = orientationToward(direction);
 
     return {CommandStatus::Applied,
-            "Navigation set. Use accelerate to travel; reaching the planet's orbit boundary inserts the ship into orbit."};
+            "Autopilot engaged: turning and thrusting toward the planet. Reaching its orbit "
+            "boundary inserts the ship into orbit."};
 }
 
-CommandResult executeAction(World& world, Player& player, Ship& ship, const SelectTarget& action) {
+CommandResult executeAction(World& world, Player& player, Ship& ship, const SelectTarget& action)
+{
     if (action.target.kind != Target::Kind::Entity)
         return {CommandStatus::Invalid, "Select requires an entity target."};
 
     auto* targetPosition = positionOf(world, action.target);
-    if (!targetPosition) return {CommandStatus::NotFound, "Selectable entity not found."};
+    if (!targetPosition)
+        return {CommandStatus::NotFound, "Selectable entity not found."};
 
     const Vec3 direction = *targetPosition - ship.position;
     if (direction.length() <= 1e-9)

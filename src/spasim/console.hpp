@@ -9,14 +9,16 @@
 #include <thread>
 #include <string>
 
-namespace spasim {
+namespace spasim
+{
 
-class ConsoleApp {
-public:
+class ConsoleApp
+{
+  public:
     ConsoleApp(Simulation& simulation, std::istream& input, std::ostream& output);
     int run();
 
-private:
+  private:
     void printHelp() const;
     void printStatus(PlayerId playerId) const;
     void printTeams() const;
