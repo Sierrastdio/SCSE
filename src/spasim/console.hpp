@@ -36,6 +36,7 @@ class ConsoleApp
     std::mutex inputMutex_;
     std::atomic_bool inputFinished_{};
     bool snapshotEnabled_{};
+    double timeScale_{1.0};
 };
 
 } // namespace spasim

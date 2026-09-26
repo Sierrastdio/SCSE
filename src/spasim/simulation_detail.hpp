@@ -16,8 +16,15 @@ namespace spasim::detail
 // Command handlers are grouped by the simulation subsystem they affect.
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetHeading&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetAcceleration&);
-[[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetGoal&);
-[[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SelectTarget&);
+[[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetThrottleLevel&);
+[[nodiscard]] CommandResult
+executeAction(World&, Player&, Ship&, const SetGoal&, const OrbitRules&);
+[[nodiscard]] CommandResult
+executeAction(World&, Player&, Ship&, const SetOrbitLevel&, const OrbitRules&);
+[[nodiscard]] CommandResult
+executeAction(World&, Player&, Ship&, const SetShipClass&, const OrbitRules&);
+[[nodiscard]] CommandResult
+executeAction(World&, Player&, Ship&, const SelectTarget&, const OrbitRules&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const FirePhasor&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const FireTorpedo&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const DetonateTorpedo&);
@@ -27,7 +34,7 @@ namespace spasim::detail
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const LoadFromPlanet&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetAlliances&);
 
-void updateMovement(World& world);
+void updateMovement(World& world, const OrbitRules& rules);
 void updateTorpedoes(World& world);
 void updateCombat(World& world);
 void updateEconomy(World& world);

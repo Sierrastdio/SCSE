@@ -18,7 +18,10 @@ enum class CommandKind : std::uint8_t
     Accelerate,
     Brake,
     Cruise,
+    SetThrottleLevel,
     SetGoal,
+    SetOrbitLevel,
+    SetShipClass,
     Select,
     Fire,
     FireTorpedo,
@@ -30,6 +33,7 @@ enum class CommandKind : std::uint8_t
     Ally,
     Pause,
     Resume,
+    Speed,
     Snapshot,
     Quit,
     Unknown

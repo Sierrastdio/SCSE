@@ -36,6 +36,8 @@ void writeSnapshot(const World& world, std::ostream& output)
             output << "null";
         output << ",\"yaw\":" << ship.orientation.yawDegrees
                << ",\"pitch\":" << ship.orientation.pitchDegrees << ",\"speed\":" << ship.speed
+               << ",\"class\":\"" << toString(ship.shipClass)
+               << "\",\"orbit_level\":" << static_cast<int>(ship.orbitLevel)
                << ",\"radius\":" << ship.collisionRadius
                << ",\"destroyed\":" << (ship.combat.destroyed ? "true" : "false") << '}';
     }
@@ -79,7 +81,14 @@ void writeSnapshot(const World& world, std::ostream& output)
                << "\",\"x\":" << planet.position.x << ",\"y\":" << planet.position.y
                << ",\"z\":" << planet.position.z << ",\"radius\":" << planet.radius
                << ",\"orbit_radius\":" << planet.radius + planet.parkingOrbitAltitude
-               << ",\"mu\":" << planet.gravitationalParameter << '}';
+               << ",\"sphere_radius\":" << planet.sphereOfInfluenceRadius << ",\"orbit_levels\":[";
+        for (std::uint8_t level = 0; level < planet.orbitLevelCount; ++level)
+        {
+            if (level > 0)
+                output << ',';
+            output << planet.orbitLevelRadii[level];
+        }
+        output << "],\"mu\":" << planet.gravitationalParameter << '}';
     }
     output << "]}";
 }

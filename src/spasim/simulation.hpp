@@ -2,7 +2,9 @@
 
 #include "spasim/command.hpp"
 #include "spasim/model.hpp"
+#include "spasim/lua_rules.hpp"
 
+#include <filesystem>
 #include <string>
 #include <iosfwd>
 #include <variant>
@@ -18,9 +20,22 @@ struct SetAcceleration
 {
     AccelerationMode mode{AccelerationMode::Cruise};
 };
+struct SetThrottleLevel
+{
+    std::uint8_t level{2};
+};
 struct SetGoal
 {
     Target target{};
+    std::uint8_t orbitLevel{1};
+};
+struct SetOrbitLevel
+{
+    std::uint8_t level{1};
+};
+struct SetShipClass
+{
+    ShipClass shipClass{ShipClass::Small};
 };
 struct FirePhasor
 {
@@ -69,7 +84,10 @@ struct SetAlliances
 };
 using WorldCommand = std::variant<SetHeading,
                                   SetAcceleration,
+                                  SetThrottleLevel,
                                   SetGoal,
+                                  SetOrbitLevel,
+                                  SetShipClass,
                                   SelectTarget,
                                   FirePhasor,
                                   FireTorpedo,
@@ -101,7 +119,7 @@ struct CommandResult
 class Simulation
 {
   public:
-    explicit Simulation(World world);
+    explicit Simulation(World world, std::filesystem::path rulesPath = "scripts/orbit_rules.lua");
 
     [[nodiscard]] World& world() noexcept
     {
@@ -117,6 +135,7 @@ class Simulation
 
   private:
     World world_;
+    OrbitRules orbitRules_;
 };
 
 } // namespace spasim

@@ -159,6 +159,20 @@ const char* toString(AccelerationMode value) noexcept
     return "unknown";
 }
 
+const char* toString(ShipClass value) noexcept
+{
+    switch (value)
+    {
+    case ShipClass::Small:
+        return "small";
+    case ShipClass::Medium:
+        return "medium";
+    case ShipClass::Large:
+        return "large";
+    }
+    return "unknown";
+}
+
 World makeInitialWorld(std::uint64_t seed)
 {
     World world;
@@ -182,8 +196,9 @@ World makeInitialWorld(std::uint64_t seed)
         planet.name = "Planet " + std::to_string(i + 1);
         planet.position = planetPositions[i];
         planet.radius = 30.0;
-        planet.gravitationalParameter = 1000.0;
+        planet.gravitationalParameter = 2000.0;
         planet.parkingOrbitAltitude = 90.0;
+        planet.sphereOfInfluenceRadius = 500.0;
         // The printed listing gives random ranges/formulas, but the runtime's
         // operator semantics and initialized constants are not fully recoverable.
         // These neutral starting values are placeholders pending source-data recovery.

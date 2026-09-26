@@ -29,6 +29,16 @@ An **entity** is any independently identified thing that exists in the simulated
 
 Avoid speculative “universal ECS” machinery at this stage. A small typed model and focused systems are clearer; generalize after a second concrete game/scenario proves which abstractions repeat.
 
+### Script boundary (current direction)
+
+Use embedded Lua 5.4 for game rules and rapid balance iteration while keeping simulation ownership and physical state changes in C++.
+
+- C++ owns entity/world state, deterministic stepping, forces, collision, and final movement updates.
+- Lua supplies editable policy/configuration such as ship-class limits, orbit-level layout, orbit-transfer maneuver policy, weapon profiles, scenarios, and later economy rules.
+- Scripts return validated rule values or policy decisions through a narrow API. They do not receive unrestricted mutable references to `World`, `Ship`, or `Planet`.
+- Begin with `scripts/orbit_rules.lua`. The C++ loader validates the rule table at startup; invalid values stop startup with a useful error. Rule edits take effect after restart.
+- The current console executable requires Lua 5.4.
+
 ## Program identity and dependencies
 
 - The lesson header identifies the application as SPASIM, version 3.6, by Jim Bowery; description: three dimensional simulation of space.
@@ -122,9 +132,11 @@ This is a structured core, not yet a faithful rules port. Placeholder starting r
 
 The present implementation stores ships, bases and torpedoes in separate fixed-capacity arrays with shared `EntityId`s. This is a transitional typed design; a true unified entity registry/component layout is an engine improvement to schedule after source-rule recovery. Do not treat an integer `Target::id` as interchangeable across domains without checking `Target::kind`.
 
-The sample console now runs a fixed-step real-time loop while a dedicated input reader feeds a synchronized command queue. Simulation state is only mutated by the simulation thread. `pause`, `resume` and `tick` are available. The core still exposes explicit `step()` and has no wall-clock dependency.
+The sample console now runs a fixed-step loop while a dedicated input reader feeds a synchronized command queue. `speed <multiplier>` adjusts wall-clock playback from 0.1x through 10000x without changing the physics timestep; the core still exposes explicit `step()` and has no wall-clock dependency.
 
 The console `turn x y z` input is interpreted as a desired forward direction vector, not yaw/pitch angles and not a world-space destination. The vector is converted to heading/pitch and the ship slews toward it at its configured turn rate. Status prints the current normalized facing vector and the internal yaw/pitch angles so a slow turn can be distinguished from a failed command.
+
+Lua currently provides the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. `select` keeps the ship turning toward its target while Lua updates the aim direction; finite-speed projectile profiles can use the Lua intercept solution. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `scripts/orbit_rules.lua`.
 
 For debug rendering, `Simulation::writeSnapshot` exports entity/planet state as JSON without adding a graphics dependency to the core. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
 
@@ -182,6 +194,6 @@ Line references refer to numbered source statements printed in the attachment:
 
 
 
-+ 추후 희망사항:
-- 함선 체급이 생긴 뒤로는 함선의 체급에 따라 궤도의 반치름(orbit level) 활동 가능을 정했으면 좋겠음. 궤도 레벨은 행성의 중력권(렌더러에서 노란 점선으로 표시는 그거)에서부터 orbit level 1로 제일 바깥쪽으로 시작하며 그 노란 선을 n등분 해서 각 단계를 level 2, 3, 4 정하는거임. 예를들어 소형함이면 행성의 모든 궤도 레벨을 다닐수 있는거고, 제일큰 함선이면 궤도의 깊숙한 높은 레벨에는 접근 못하는거임. 궤도를 바꾸는 자동 비행 기능 추가가 필요할듯.
+## User-requested feature backlog
 
+- **Prototype implemented:** Ship classes restrict access to inner orbit levels, and an automatic controller transfers between levels. Current class limits and radii are provisional values in `scripts/orbit_rules.lua` and need playtesting.

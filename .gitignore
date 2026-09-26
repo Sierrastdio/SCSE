@@ -1,4 +1,5 @@
 /build/
+/build-ucrt/
 /out/
 *.sav
 /debug/world.json

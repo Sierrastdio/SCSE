@@ -3,18 +3,32 @@
 #include "spasim/simulation_detail.hpp"
 
 #include <type_traits>
+#include <stdexcept>
 #include <utility>
 
 namespace spasim
 {
 
-Simulation::Simulation(World world) : world_(std::move(world))
+Simulation::Simulation(World world, std::filesystem::path rulesPath)
+    : world_(std::move(world)), orbitRules_(rulesPath)
 {
+    for (auto& planet : world_.planets)
+    {
+        planet.sphereOfInfluenceRadius = orbitRules_.sphereOfInfluenceRadius;
+        planet.orbitLevelCount = orbitRules_.levelCount;
+        for (std::uint8_t level = 1; level <= orbitRules_.levelCount; ++level)
+        {
+            planet.orbitLevelRadii[level - 1] = orbitRules_.orbitRadius(planet, level);
+            if (planet.orbitLevelRadii[level - 1] < planet.radius + planet.parkingOrbitAltitude)
+                throw std::runtime_error(
+                    "Orbit rules place an orbit inside the planet's safe orbit.");
+        }
+    }
 }
 
 void Simulation::step()
 {
-    detail::updateMovement(world_);
+    detail::updateMovement(world_, orbitRules_);
     detail::updateTorpedoes(world_);
     detail::updateCombat(world_);
     detail::updateEconomy(world_);
@@ -40,6 +54,13 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand& command
             {
                 step();
                 return {CommandStatus::Applied, "Simulation advanced one fixed step."};
+            }
+            else if constexpr (std::is_same_v<Action, SetGoal> ||
+                               std::is_same_v<Action, SetOrbitLevel> ||
+                               std::is_same_v<Action, SetShipClass> ||
+                               std::is_same_v<Action, SelectTarget>)
+            {
+                return detail::executeAction(world_, *player, *ship, action, orbitRules_);
             }
             else
             {

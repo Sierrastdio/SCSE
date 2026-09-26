@@ -23,23 +23,28 @@ ConsoleApp::ConsoleApp(Simulation& simulation, std::istream& input, std::ostream
 void ConsoleApp::printHelp() const
 {
     output_ << "Commands: status, teams, planets, turn <x> <y> <z>, accelerate, brake, cruise, "
-               "goal <planet 1-4>, "
+               "throttle <1-4>, "
+               "goal <planet 1-4> [orbit-level], orbit <level>, class <small|medium|large>, "
                "select <entity-id>, weapon <1-4>, fire [power], torpedo <energy>, detonate, repair "
                "<amount>, "
                "load <energy|material> <amount> <planet 1-4>, transfer <energy|material> <amount> "
                "<entity-id>, "
-               "ally <team 1-4> <team 1-4>, pause, resume, quit\n"
+               "ally <team 1-4> <team 1-4>, pause, resume, speed [0.1-10000], quit\n"
                "Select accepts an entity ID (select 2), ship-2, ship #2, or a practice target "
                "alias T1-T4.\n"
                "It aims at a ship; fire hits only when it is in range and in front.\n"
-               "turn rotates the nose only; accelerate thrusts along the nose, brake opposes "
-               "velocity, cruise coasts.\n"
-               "goal <planet> navigates toward a planet; crossing its parking orbit inserts the "
-               "ship into orbit.\n"
+               "turn rotates the nose only; accelerate thrusts along the nose up to the selected "
+               "throttle speed, brake opposes velocity, cruise coasts. Throttle stages set the "
+               "speed cap relative to the L1 orbit speed.\n"
+               "goal <planet> [level] flies to the planet and enters that orbit; orbit <level> "
+               "changes level while orbiting. Higher levels are closer to the planet.\n"
+               "Small ships can use every level; medium and large ships have tighter limits.\n"
                "Planets exert gravity; status separates nose direction from inertial velocity and "
                "shows engine mode.\n"
-               "The simulation advances automatically in real time. Prefix a command with tick to "
-               "advance once.\n";
+               "goal autopilot brakes by stopping distance and follows the selected throttle cap.\n"
+               "The simulation advances automatically in real time. speed <multiplier> changes "
+               "playback (0.1-10000x) while physics keeps its fixed timestep. Prefix a command "
+               "with tick to advance once.\n";
 }
 
 void ConsoleApp::printStatus(PlayerId playerId) const
@@ -59,17 +64,42 @@ void ConsoleApp::printStatus(PlayerId playerId) const
             << ship->velocity.z << ")"
             << " | heading angles " << ship->orientation.yawDegrees << '/'
             << ship->orientation.pitchDegrees << " | engines " << toString(ship->acceleration)
+            << " | throttle " << static_cast<int>(ship->throttleLevel)
             << " | speed " << ship->speed << " | energy " << ship->resources.energy << " | shields "
             << ship->combat.shields << " | hull " << ship->combat.hull - ship->combat.hullDamage
             << " | sim " << simulation_.world().elapsedSeconds << "s\n";
-    if (ship->orbitingPlanet && *ship->orbitingPlanet < kPlanetCount)
-        output_ << "Orbiting: " << simulation_.world().planets[*ship->orbitingPlanet].name << "\n";
+    if (ship->orbitingPlanet && !ship->orbitTransferTargetLevel &&
+        *ship->orbitingPlanet < kPlanetCount)
+    {
+        const auto& planet = simulation_.world().planets[*ship->orbitingPlanet];
+        output_ << "Orbiting: " << planet.name << " at level "
+                << static_cast<int>(ship->orbitLevel);
+        if (ship->orbitLevel > 0 && ship->orbitLevel <= planet.orbitLevelCount)
+            output_ << " | radius " << ship->position.distanceTo(planet.position) << " / "
+                    << planet.orbitLevelRadii[ship->orbitLevel - 1];
+        output_ << "\n";
+    }
     else if (player->goal && player->goal->kind == Target::Kind::Planet &&
              player->goal->id < kPlanetCount)
         output_ << "Navigation goal: " << simulation_.world().planets[player->goal->id].name
+                << " (orbit level " << static_cast<int>(player->goalOrbitLevel) << ")"
                 << "\n";
+    if (ship->orbitTransferTargetLevel)
+    {
+        output_ << "Orbit transfer in progress: level "
+                << static_cast<int>(*ship->orbitTransferTargetLevel);
+        if (ship->orbitingPlanet && *ship->orbitingPlanet < kPlanetCount)
+        {
+            const auto& planet = simulation_.world().planets[*ship->orbitingPlanet];
+            const auto level = *ship->orbitTransferTargetLevel;
+            output_ << " | radius " << ship->position.distanceTo(planet.position) << " -> "
+                    << planet.orbitLevelRadii[level - 1];
+        }
+        output_ << "\n";
+    }
     if (player->selectedTarget)
         output_ << "Combat target: entity " << *player->selectedTarget << "\n";
+    output_ << "Ship class: " << toString(ship->shipClass) << "\n";
 }
 
 void ConsoleApp::printTeams() const
@@ -90,8 +120,9 @@ void ConsoleApp::printTeams() const
                 output_ << " alias=T" << static_cast<int>(ship.team + 1);
             output_ << " \"" << ship.name << "\""
                     << (ship.playerControlled ? " [player]" : " [stationary practice target]")
-                    << " at (" << std::fixed << std::setprecision(0) << ship.position.x << ", "
-                    << ship.position.y << ", " << ship.position.z << ")"
+                    << " class=" << toString(ship.shipClass) << " at (" << std::fixed
+                    << std::setprecision(0) << ship.position.x << ", " << ship.position.y << ", "
+                    << ship.position.z << ")"
                     << " shields=" << std::setprecision(0) << ship.combat.shields
                     << " hull=" << ship.combat.hull - ship.combat.hullDamage << '\n';
         }
@@ -114,7 +145,8 @@ void ConsoleApp::printPlanets() const
                 << planet.position.x << ", " << planet.position.y << ", " << planet.position.z
                 << ") | population " << planet.population << " | energy " << planet.antiEntropy
                 << " | raw material " << planet.rawMaterial << " | SOL " << planet.standardOfLiving
-                << " | skill " << planet.skill << '\n';
+                << " | skill " << planet.skill << " | gravity boundary "
+                << planet.sphereOfInfluenceRadius << '\n';
     }
 }
 
@@ -130,8 +162,19 @@ WorldCommand ConsoleApp::toWorldCommand(const Command& command, PlayerId playerI
         return SetAcceleration{AccelerationMode::Decelerate};
     case CommandKind::Cruise:
         return SetAcceleration{AccelerationMode::Cruise};
+    case CommandKind::SetThrottleLevel:
+        return SetThrottleLevel{static_cast<std::uint8_t>(command.target)};
     case CommandKind::SetGoal:
-        return SetGoal{Target{Target::Kind::Planet, command.target}};
+        return SetGoal{Target{Target::Kind::Planet, command.target},
+                       static_cast<std::uint8_t>(command.hasSecond ? command.second : 1.0)};
+    case CommandKind::SetOrbitLevel:
+        return SetOrbitLevel{static_cast<std::uint8_t>(command.target)};
+    case CommandKind::SetShipClass:
+        if (command.text == "small")
+            return SetShipClass{ShipClass::Small};
+        if (command.text == "medium")
+            return SetShipClass{ShipClass::Medium};
+        return SetShipClass{ShipClass::Large};
     case CommandKind::Select:
         return SelectTarget{Target{Target::Kind::Entity, command.target}};
     case CommandKind::Fire:
@@ -219,6 +262,12 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
         else
             execute(toWorldCommand(command, playerId));
         break;
+    case CommandKind::SetThrottleLevel:
+        if (!command.hasTarget)
+            output_ << "Usage: throttle <1-4>\n";
+        else
+            execute(toWorldCommand(command, playerId));
+        break;
     case CommandKind::Accelerate:
     case CommandKind::Brake:
     case CommandKind::Cruise:
@@ -267,7 +316,22 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
         break;
     case CommandKind::SetGoal:
         if (!command.hasTarget)
-            output_ << "Usage: goal <planet 1-4>\n";
+            output_ << "Usage: goal <planet 1-4> [orbit-level]\n";
+        else if (command.hasSecond && (command.second < 1 || command.second > kMaxOrbitLevels ||
+                                       std::floor(command.second) != command.second))
+            output_ << "Orbit level must be a whole number from 1 to 8.\n";
+        else
+            execute(toWorldCommand(command, playerId));
+        break;
+    case CommandKind::SetOrbitLevel:
+        if (!command.hasTarget)
+            output_ << "Usage: orbit <level>\n";
+        else
+            execute(toWorldCommand(command, playerId));
+        break;
+    case CommandKind::SetShipClass:
+        if (command.text != "small" && command.text != "medium" && command.text != "large")
+            output_ << "Usage: class <small|medium|large>\n";
         else
             execute(toWorldCommand(command, playerId));
         break;
@@ -296,6 +360,17 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
     case CommandKind::Resume:
         simulation_.world().paused = false;
         output_ << "Simulation resumed.\n";
+        break;
+    case CommandKind::Speed:
+        if (!command.hasFirst)
+            output_ << "Simulation speed: " << timeScale_ << "x. Usage: speed <0.1-10000>\n";
+        else if (!std::isfinite(command.first) || command.first < 0.1 || command.first > 10000.0)
+            output_ << "Speed must be between 0.1 and 10000.\n";
+        else
+        {
+            timeScale_ = command.first;
+            output_ << "Simulation speed set to " << timeScale_ << "x.\n";
+        }
         break;
     case CommandKind::Snapshot:
         snapshotEnabled_ = command.text != "off";
@@ -369,21 +444,32 @@ int ConsoleApp::run()
     output_ << "Welcome, " << line << ". Simulation running. Type help.\n> ";
     std::thread reader(&ConsoleApp::inputWorker, this);
     using clock = std::chrono::steady_clock;
-    auto nextStep = clock::now();
+    auto previousWallTime = clock::now();
+    auto nextSnapshot = previousWallTime;
+    double simulationAccumulator = 0.0;
     bool quit = false;
     while (!quit)
     {
-        if (clock::now() >= nextStep)
+        const auto now = clock::now();
+        const double wallSeconds = std::chrono::duration<double>(now - previousWallTime).count();
+        previousWallTime = now;
+        if (!simulation_.world().paused)
         {
-            if (!simulation_.world().paused)
+            simulationAccumulator += wallSeconds * timeScale_;
+            const double fixedStep = simulation_.world().fixedStepSeconds;
+            while (simulationAccumulator >= fixedStep)
+            {
                 simulation_.step();
-            if (snapshotEnabled_)
-                writeSnapshotFile();
-            const auto stepDuration = std::chrono::duration_cast<clock::duration>(
-                std::chrono::duration<double>(simulation_.world().fixedStepSeconds));
-            nextStep += stepDuration;
-            if (clock::now() - nextStep > stepDuration * 4)
-                nextStep = clock::now();
+                simulationAccumulator -= fixedStep;
+            }
+        }
+        else
+            simulationAccumulator = 0.0;
+
+        if (snapshotEnabled_ && now >= nextSnapshot)
+        {
+            writeSnapshotFile();
+            nextSnapshot = now + std::chrono::milliseconds(100);
         }
         bool printed = false;
         while (pollLine(line))

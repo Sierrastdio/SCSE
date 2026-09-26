@@ -7,5 +7,12 @@
         "editor.defaultFormatter": "xaver.clang-format"
     },
     "clang-format.style": "file",
-    "clang-format.executable": "C:/msys64/ucrt64/bin/clang-format.exe"
+    "clang-format.executable": "C:/msys64/ucrt64/bin/clang-format.exe",
+    "cmake.generator": "Ninja",
+    "cmake.configureSettings": {
+        "CMAKE_MAKE_PROGRAM": "C:/msys64/ucrt64/bin/ninja.exe",
+        "CMAKE_CXX_COMPILER": "C:/msys64/ucrt64/bin/g++.exe",
+        "LUA_INCLUDE_DIR": "C:/msys64/ucrt64/include",
+        "LUA_LIBRARY": "C:/msys64/ucrt64/lib/liblua.dll.a"
+    }
 }

@@ -160,14 +160,25 @@ class DebugViewer:
 
         for planet in planets:
             point = (planet["x"], planet["y"], planet["z"])
-            orbit_radius = float(planet.get("orbit_radius", 0.0))
-            if orbit_radius > 0.0:
-                ring = []
+            sphere_radius = float(planet.get("sphere_radius", 0.0))
+            if sphere_radius > 0.0:
+                sphere_ring = []
                 for index in range(49):
                     angle = 2.0 * math.pi * index / 48
-                    ring.extend(screen((point[0] + orbit_radius * math.cos(angle),
-                                        point[1] + orbit_radius * math.sin(angle), point[2])))
-                canvas.create_line(*ring, fill="#74764f", dash=(3, 4), smooth=True, width=1)
+                    sphere_ring.extend(screen((point[0] + sphere_radius * math.cos(angle),
+                                               point[1] + sphere_radius * math.sin(angle), point[2])))
+                canvas.create_line(*sphere_ring, fill="#d4c94f", dash=(3, 4), smooth=True, width=1)
+            for level, orbit_radius in enumerate(planet.get("orbit_levels", []), start=1):
+                if level > 1:
+                    level_ring = []
+                    for index in range(49):
+                        angle = 2.0 * math.pi * index / 48
+                        level_ring.extend(screen((point[0] + orbit_radius * math.cos(angle),
+                                                  point[1] + orbit_radius * math.sin(angle), point[2])))
+                    canvas.create_line(*level_ring, fill="#68768a", dash=(2, 5), smooth=True, width=1)
+                canvas.create_text(*screen((point[0] + orbit_radius, point[1], point[2])),
+                                   text=f"L{level}", fill="#aebbd0", anchor=tk.W,
+                                   font=("Consolas", 8))
             sx, sy = screen(point)
             canvas.create_oval(sx - 8, sy - 8, sx + 8, sy + 8, fill="#e8e36a", outline="white", width=1)
             canvas.create_text(sx + 12, sy - 10, text=planet.get("name", "planet"), fill="#f4ef9a", anchor=tk.W)
@@ -199,11 +210,14 @@ class DebugViewer:
                                       point[2] + entity["vz"] * 0.3)
                     ex, ey = screen(velocity_point)
                     canvas.create_line(sx, sy, ex, ey, fill=color, arrow=tk.LAST, width=2)
-            canvas.create_text(sx + 10, sy + 10, text=f"{kind} #{entity.get('id')} T{team + 1}",
+            ship_details = (f" {entity.get('class', '')} L{entity.get('orbit_level', 0)}"
+                            if kind == "ship" else "")
+            canvas.create_text(sx + 10, sy + 10,
+                               text=f"{kind} #{entity.get('id')} T{team + 1}{ship_details}",
                                fill=color, anchor=tk.NW, font=("Consolas", 9))
 
         canvas.create_text(14, height - 16, anchor=tk.SW,
-                           text="Right-drag orbit · Shift+right-drag pan · dashed=facing · yellow=velocity   Scroll/+/− zoom   1-4 views",
+                           text="Right-drag orbit · Shift+right-drag pan · yellow=dashed gravity boundary · yellow arrow=velocity · 1-4 views",
                            fill="#b4bdc9", font=("Consolas", 9))
 
     def draw_axes(self, screen, center, scale: float, width: int, height: int) -> None:

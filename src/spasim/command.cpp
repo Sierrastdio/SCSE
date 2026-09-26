@@ -63,8 +63,14 @@ Command parseCommand(std::string_view line)
         result.kind = CommandKind::Brake;
     else if (name == "cruise" || name == "coast")
         result.kind = CommandKind::Cruise;
+    else if (name == "throttle")
+        result.kind = CommandKind::SetThrottleLevel;
     else if (name == "goal")
         result.kind = CommandKind::SetGoal;
+    else if (name == "orbit")
+        result.kind = CommandKind::SetOrbitLevel;
+    else if (name == "class")
+        result.kind = CommandKind::SetShipClass;
     else if (name == "select" || name == "target")
         result.kind = CommandKind::Select;
     else if (name == "fire" || name == "shoot")
@@ -87,6 +93,8 @@ Command parseCommand(std::string_view line)
         result.kind = CommandKind::Pause;
     else if (name == "resume")
         result.kind = CommandKind::Resume;
+    else if (name == "speed")
+        result.kind = CommandKind::Speed;
     else if (name == "snapshot")
         result.kind = CommandKind::Snapshot;
     else if (name == "quit" || name == "exit")
@@ -125,6 +133,19 @@ Command parseCommand(std::string_view line)
             parse(first, target) && target >= 1.0 && target <= 4.0 && std::floor(target) == target;
         if (result.hasTarget)
             result.target = static_cast<std::uint32_t>(target - 1.0);
+        if (!second.empty())
+        {
+            result.hasSecond = true;
+            parse(second, result.second);
+        }
+    }
+    else if (result.kind == CommandKind::SetOrbitLevel)
+    {
+        double level{};
+        result.hasTarget = parse(first, level) && level >= 1.0 && level <= kMaxOrbitLevels &&
+                           std::floor(level) == level;
+        if (result.hasTarget)
+            result.target = static_cast<std::uint32_t>(level);
     }
     else if (result.kind == CommandKind::Fire)
     {
@@ -177,6 +198,18 @@ Command parseCommand(std::string_view line)
     else if (result.kind == CommandKind::Snapshot)
     {
         result.text = first;
+    }
+    else if (result.kind == CommandKind::Speed)
+    {
+        result.hasFirst = parse(first, result.first);
+    }
+    else if (result.kind == CommandKind::SetThrottleLevel)
+    {
+        double level{};
+        result.hasTarget =
+            parse(first, level) && level >= 1.0 && level <= 4.0 && std::floor(level) == level;
+        if (result.hasTarget)
+            result.target = static_cast<std::uint32_t>(level);
     }
     return result;
 }

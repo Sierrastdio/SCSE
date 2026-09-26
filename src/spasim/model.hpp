@@ -19,6 +19,7 @@ inline constexpr std::size_t kPracticeShipCount = kTeamCount;
 inline constexpr std::size_t kEntityCapacity = kPlayerCapacity + kPracticeShipCount;
 inline constexpr std::size_t kPlanetCount = 4;
 inline constexpr std::size_t kWeaponCount = 4;
+inline constexpr std::size_t kMaxOrbitLevels = 8;
 
 using PlayerId = std::uint32_t;
 using EntityId = std::uint32_t;
@@ -67,6 +68,12 @@ enum class AccelerationMode : std::uint8_t
     Cruise,
     Accelerate
 };
+enum class ShipClass : std::uint8_t
+{
+    Small,
+    Medium,
+    Large
+};
 
 struct Resources
 {
@@ -100,6 +107,7 @@ struct Ship
     PlayerId owner{kNoPlayer};
     TeamId team{};
     std::string name;
+    ShipClass shipClass{ShipClass::Small};
     Vec3 position{};
     Vec3 velocity{}; // Inertial world-units per second; heading and velocity are independent.
     Orientation orientation{};
@@ -108,10 +116,13 @@ struct Ship
     double speed{};
     double warp{};
     AccelerationMode acceleration{AccelerationMode::Cruise};
+    std::uint8_t throttleLevel{3};
     Resources resources{};
     CombatState combat{};
     double collisionRadius{20.0};
     std::optional<PlanetId> orbitingPlanet;
+    std::uint8_t orbitLevel{};
+    std::optional<std::uint8_t> orbitTransferTargetLevel;
     bool playerControlled{};
     bool exists{true};
 };
@@ -169,6 +180,7 @@ struct Player
     EntityId torpedoId{};
     EntityId selectedObject{};
     std::optional<Target> goal;
+    std::uint8_t goalOrbitLevel{1};
     double phasorPower{1.0};
     double phasorDiameter{1.0};
     WeaponKind weapon{WeaponKind::Aggstroms};
@@ -185,6 +197,9 @@ struct Planet
     double radius{30.0};
     double gravitationalParameter{1000.0}; // G * mass in the simulation's world units.
     double parkingOrbitAltitude{90.0};
+    double sphereOfInfluenceRadius{500.0};
+    std::uint8_t orbitLevelCount{4};
+    std::array<double, kMaxOrbitLevels> orbitLevelRadii{};
     double population{};
     double antiEntropy{};
     double rawMaterial{};
@@ -234,5 +249,6 @@ struct World
 [[nodiscard]] const char* toString(ObjectKind value) noexcept;
 [[nodiscard]] const char* toString(WeaponKind value) noexcept;
 [[nodiscard]] const char* toString(AccelerationMode value) noexcept;
+[[nodiscard]] const char* toString(ShipClass value) noexcept;
 
 } // namespace spasim
