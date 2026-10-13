@@ -17,7 +17,6 @@ inline constexpr std::size_t kPlayerCapacity = kTeamCount * kPlayersPerTeam;
 // Leave entity storage room for static training targets as well as every player.
 inline constexpr std::size_t kPracticeShipCount = kTeamCount;
 inline constexpr std::size_t kEntityCapacity = kPlayerCapacity + kPracticeShipCount;
-inline constexpr std::size_t kPlanetCount = 4;
 inline constexpr std::size_t kWeaponCount = 4;
 inline constexpr std::size_t kMaxOrbitLevels = 8;
 
@@ -33,6 +32,7 @@ struct Vec3
     double y{};
     double z{};
 
+    [[nodiscard]] double lengthSquared() const noexcept;
     [[nodiscard]] double length() const noexcept;
     [[nodiscard]] double distanceTo(const Vec3& other) const noexcept;
     Vec3& operator+=(const Vec3& other) noexcept;
@@ -57,10 +57,10 @@ enum class ObjectKind : std::uint8_t
 };
 enum class WeaponKind : std::uint8_t
 {
-    Aggstroms,
-    Fouriers,
-    Diffractions,
-    Lasers
+    Slot0,
+    Slot1,
+    Slot2,
+    Slot3
 };
 enum class AccelerationMode : std::uint8_t
 {
@@ -107,24 +107,24 @@ struct Ship
     PlayerId owner{kNoPlayer};
     TeamId team{};
     std::string name;
-    ShipClass shipClass{ShipClass::Small};
+    ShipClass shipClass{};
     Vec3 position{};
     Vec3 velocity{}; // Inertial world-units per second; heading and velocity are independent.
     Orientation orientation{};
     Orientation desiredOrientation{};
-    double turnRateDegreesPerSecond{30.0};
+    double turnRateDegreesPerSecond{};
     double speed{};
     double warp{};
-    AccelerationMode acceleration{AccelerationMode::Cruise};
-    std::uint8_t throttleLevel{3};
+    AccelerationMode acceleration{};
+    std::uint8_t throttleLevel{};
     Resources resources{};
     CombatState combat{};
-    double collisionRadius{20.0};
+    double collisionRadius{};
     std::optional<PlanetId> orbitingPlanet;
     std::uint8_t orbitLevel{};
     std::optional<std::uint8_t> orbitTransferTargetLevel;
     bool playerControlled{};
-    bool exists{true};
+    bool exists{};
 };
 
 struct Base
@@ -136,8 +136,8 @@ struct Base
     Vec3 position{};
     Resources resources{};
     CombatState combat{};
-    double collisionRadius{50.0};
-    bool exists{true};
+    double collisionRadius{};
+    bool exists{};
 };
 
 struct Torpedo
@@ -152,7 +152,7 @@ struct Torpedo
     double fieldStrength{};
     double damage{};
     double lifeSeconds{};
-    double collisionRadius{2.0};
+    double collisionRadius{};
     bool controlled{};
     bool detonated{};
     bool exists{};
@@ -180,10 +180,10 @@ struct Player
     EntityId torpedoId{};
     EntityId selectedObject{};
     std::optional<Target> goal;
-    std::uint8_t goalOrbitLevel{1};
-    double phasorPower{1.0};
-    double phasorDiameter{1.0};
-    WeaponKind weapon{WeaponKind::Aggstroms};
+    std::uint8_t goalOrbitLevel{};
+    double phasorPower{};
+    double phasorDiameter{};
+    WeaponKind weapon{WeaponKind::Slot0};
     std::optional<EntityId> selectedTarget;
     bool phasorEnabled{};
     bool joined{};
@@ -194,11 +194,11 @@ struct Planet
     PlanetId id{};
     std::string name;
     Vec3 position{};
-    double radius{30.0};
-    double gravitationalParameter{1000.0}; // G * mass in the simulation's world units.
-    double parkingOrbitAltitude{90.0};
-    double sphereOfInfluenceRadius{500.0};
-    std::uint8_t orbitLevelCount{4};
+    double radius{};
+    double gravitationalParameter{}; // G * mass in the simulation's world units.
+    double parkingOrbitAltitude{};
+    double sphereOfInfluenceRadius{};
+    std::uint8_t orbitLevelCount{};
     std::array<double, kMaxOrbitLevels> orbitLevelRadii{};
     double population{};
     double antiEntropy{};
@@ -212,14 +212,23 @@ struct Planet
 struct Team
 {
     TeamId id{};
+    PlanetId homePlanet{};
+    ShipClass shipClass{};
     std::string name;
+    Vec3 spawnOffset{};
+    Vec3 baseOffset{};
+    double spawnRadius{};
+    double spawnVerticalMinimum{};
+    double spawnVerticalMaximum{};
+    std::uint8_t startingOrbitLevel{};
+    bool randomSpawn{};
     std::array<bool, kTeamCount> allied{};
 };
 
 struct World
 {
     std::array<Team, kTeamCount> teams{};
-    std::array<Planet, kPlanetCount> planets{};
+    std::vector<Planet> planets;
     std::array<std::optional<Player>, kPlayerCapacity> playerSlots{};
     // Fixed-capacity slot stores keep references stable and make iteration predictable.
     std::array<std::optional<Ship>, kEntityCapacity> ships{};
@@ -227,13 +236,24 @@ struct World
     std::array<std::optional<Torpedo>, kEntityCapacity> torpedoes{};
     std::uint64_t tick{};
     double elapsedSeconds{};
-    double fixedStepSeconds{0.1};
-    std::mt19937_64 random{0x53504153494DULL};
-    EntityId nextEntityId{1};
+    double fixedStepSeconds{};
+    std::mt19937_64 random;
+    std::optional<std::uint64_t> randomSeedOverride;
+    EntityId nextEntityId{};
+    EntityId entityIdStart{};
+    PlayerId playerIdStart{};
+    WeaponKind defaultWeapon{};
     bool friendlyFire{};
     bool paused{};
-    double sessionDurationSeconds{900.0};
+    double sessionDurationSeconds{};
     std::array<WeaponProfile, kWeaponCount> weapons{};
+    Player playerDefaults{};
+    Ship playerShipDefaults{};
+    Ship practiceShipDefaults{};
+    Base baseDefaults{};
+    double torpedoLaunchSpeed{};
+    double torpedoLifeSeconds{};
+    double torpedoCollisionRadius{};
 
     [[nodiscard]] const Player* findPlayer(PlayerId id) const noexcept;
     [[nodiscard]] Player* findPlayer(PlayerId id) noexcept;
@@ -247,7 +267,6 @@ struct World
 };
 
 [[nodiscard]] const char* toString(ObjectKind value) noexcept;
-[[nodiscard]] const char* toString(WeaponKind value) noexcept;
 [[nodiscard]] const char* toString(AccelerationMode value) noexcept;
 [[nodiscard]] const char* toString(ShipClass value) noexcept;
 

@@ -61,12 +61,11 @@ CommandResult executeAction(World&, Player&, Ship& ship, const SetThrottleLevel&
     if (action.level == 0 || action.level > 4)
         return {CommandStatus::Invalid, "Throttle stage must be from 1 to 4."};
     ship.throttleLevel = action.level;
-    return {CommandStatus::Applied,
-            "Throttle stage set to " + std::to_string(action.level) + "."};
+    return {CommandStatus::Applied, "Throttle stage set to " + std::to_string(action.level) + "."};
 }
 
 CommandResult executeAction(
-    World& world, Player& player, Ship& ship, const SetGoal& action, const OrbitRules& rules)
+    World& world, Player& player, Ship& ship, const SetGoal& action, const GameRules& rules)
 {
     auto* destination = positionOf(world, action.target);
     if (!destination)
@@ -113,7 +112,7 @@ CommandResult executeAction(
 }
 
 CommandResult executeAction(
-    World& world, Player&, Ship& ship, const SetOrbitLevel& action, const OrbitRules& rules)
+    World& world, Player&, Ship& ship, const SetOrbitLevel& action, const GameRules& rules)
 {
     if (!ship.orbitingPlanet || *ship.orbitingPlanet >= world.planets.size())
         return {CommandStatus::Invalid, "The ship must be in orbit before changing orbit level."};
@@ -130,7 +129,7 @@ CommandResult executeAction(
 }
 
 CommandResult
-executeAction(World&, Player&, Ship& ship, const SetShipClass& action, const OrbitRules& rules)
+executeAction(World&, Player&, Ship& ship, const SetShipClass& action, const GameRules& rules)
 {
     const auto maxLevel = rules.maximumLevel(action.shipClass);
     if (ship.orbitLevel > maxLevel ||
@@ -143,7 +142,7 @@ executeAction(World&, Player&, Ship& ship, const SetShipClass& action, const Orb
 }
 
 CommandResult executeAction(
-    World& world, Player& player, Ship& ship, const SelectTarget& action, const OrbitRules& rules)
+    World& world, Player& player, Ship& ship, const SelectTarget& action, const GameRules& rules)
 {
     if (action.target.kind != Target::Kind::Entity)
         return {CommandStatus::Invalid, "Select requires an entity target."};
@@ -161,9 +160,8 @@ CommandResult executeAction(
     else if (const auto* targetTorpedo = world.findTorpedo(action.target.id))
         targetVelocity = targetTorpedo->velocity;
     const auto weaponIndex = static_cast<std::size_t>(player.weapon);
-    const double projectileSpeed = weaponIndex < world.weapons.size()
-                                       ? world.weapons[weaponIndex].projectileSpeed
-                                       : 0.0;
+    const double projectileSpeed =
+        weaponIndex < world.weapons.size() ? world.weapons[weaponIndex].projectileSpeed : 0.0;
     const Vec3 direction =
         rules.weaponAimDirection(relativePosition, targetVelocity, projectileSpeed);
     player.selectedTarget = action.target.id;

@@ -61,6 +61,11 @@ class DebugViewer:
         self.root.bind("+", lambda _event: self.zoom_by(1.1))
         self.root.bind("-", lambda _event: self.zoom_by(1 / 1.1))
 
+        self.details = tk.Text(self.root, height=7, bg="#15191f", fg="#cbd5e1",
+                               insertbackground="#cbd5e1", relief=tk.FLAT, wrap=tk.NONE,
+                               font=("Consolas", 9), state=tk.DISABLED)
+        self.details.pack(fill=tk.X, padx=8, pady=(0, 6))
+
         self.refresh()
 
     def set_plane(self, plane: str) -> None:
@@ -110,11 +115,34 @@ class DebugViewer:
                 del trail[:-180]
             self.hud.configure(text=f"t={snapshot.get('time', 0):.1f}s   tick={snapshot.get('tick', 0)}   "
                                      f"objects={len(snapshot.get('entities', []))}   projection={self.plane}")
+            self.update_details(snapshot)
             self.redraw()
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
             self.hud.configure(text=f"Waiting for a valid snapshot: {error}")
         if self.watch:
             self.root.after(self.interval_ms, self.refresh)
+
+    def update_details(self, snapshot: dict) -> None:
+        teams = snapshot.get("teams", [])
+        entities = snapshot.get("entities", [])
+        planets = snapshot.get("planets", [])
+        lines = ["Teams / spawn configuration:"]
+        for team in teams:
+            active = next((entity for entity in entities
+                           if entity.get("kind") == "ship" and entity.get("team") == team.get("id")), None)
+            position = "no ship"
+            if active:
+                position = (f"ship #{active['id']} at ({active['x']:.1f}, {active['y']:.1f}, "
+                            f"{active['z']:.1f}); home offset {active.get('spawn_distance', 0):.1f}")
+            offset = team.get("spawn_offset", [0, 0, 0])
+            lines.append(f"T{team.get('id', 0) + 1} {team.get('name', '?')}: home P{team.get('home_planet', 0) + 1}, "
+                         f"random={team.get('random_spawn', False)} r={team.get('spawn_radius', 0):g}, "
+                         f"offset=({offset[0]:g}, {offset[1]:g}, {offset[2]:g}); {position}")
+        lines.append(f"Planets: {len(planets)}")
+        self.details.configure(state=tk.NORMAL)
+        self.details.delete("1.0", tk.END)
+        self.details.insert(tk.END, "\n".join(lines))
+        self.details.configure(state=tk.DISABLED)
 
     def project(self, point: tuple[float, float, float], center: tuple[float, float, float], scale: float) -> tuple[float, float]:
         x, y, z = (point[index] - center[index] for index in range(3))
@@ -183,6 +211,27 @@ class DebugViewer:
             canvas.create_oval(sx - 8, sy - 8, sx + 8, sy + 8, fill="#e8e36a", outline="white", width=1)
             canvas.create_text(sx + 12, sy - 10, text=planet.get("name", "planet"), fill="#f4ef9a", anchor=tk.W)
 
+        # Mark team-configured spawn points and show team identities even without ships.
+        for team in self.snapshot.get("teams", []):
+            home = next((planet for planet in planets if planet.get("id") == team.get("home_planet")), None)
+            if not home:
+                continue
+            base = (home["x"], home["y"], home["z"])
+            offset = team.get("spawn_offset", [0.0, 0.0, 0.0])
+            spawn = tuple(base[axis] + offset[axis] for axis in range(3))
+            sx, sy = screen(spawn)
+            color = TEAM_COLORS[int(team.get("id", 0)) % len(TEAM_COLORS)]
+            if team.get("random_spawn"):
+                radius = float(team.get("spawn_radius", 0.0)) * scale
+                self.canvas.create_oval(sx - radius, sy - radius, sx + radius, sy + radius,
+                                        outline=color, width=1, dash=(3, 3))
+            else:
+                self.canvas.create_oval(sx - 6, sy - 6, sx + 6, sy + 6,
+                                        outline=color, width=2, dash=(3, 2))
+            self.canvas.create_text(sx + 8, sy - 9,
+                                    text=f"{team.get('name', 'team')} spawn",
+                                    fill=color, anchor=tk.W, font=("Consolas", 8))
+
         for entity in entities:
             point = (entity["x"], entity["y"], entity["z"])
             sx, sy = screen(point)
@@ -212,8 +261,9 @@ class DebugViewer:
                     canvas.create_line(sx, sy, ex, ey, fill=color, arrow=tk.LAST, width=2)
             ship_details = (f" {entity.get('class', '')} L{entity.get('orbit_level', 0)}"
                             if kind == "ship" else "")
+            label = entity.get("team_name", f"T{team + 1}")
             canvas.create_text(sx + 10, sy + 10,
-                               text=f"{kind} #{entity.get('id')} T{team + 1}{ship_details}",
+                               text=f"{kind} #{entity.get('id')} {label}{ship_details}",
                                fill=color, anchor=tk.NW, font=("Consolas", 9))
 
         canvas.create_text(14, height - 16, anchor=tk.SW,

@@ -32,17 +32,18 @@ Vec3 gravityAt(const World& world, const Vec3& position)
     for (const auto& planet : world.planets)
     {
         const Vec3 towardPlanet = planet.position - position;
-        const double distance = towardPlanet.length();
-        if (distance <= 1e-9 || planet.gravitationalParameter <= 0.0)
+        const double distanceSquared = towardPlanet.lengthSquared();
+        if (distanceSquared <= 1e-18 || planet.gravitationalParameter <= 0.0)
             continue;
 
         // Newtonian gravity outside the body; uniform-density falloff inside it.
         const double radius = std::max(planet.radius, 1.0);
-        const double magnitude =
-            distance < radius
-                ? planet.gravitationalParameter * distance / (radius * radius * radius)
-                : planet.gravitationalParameter / (distance * distance);
-        acceleration += towardPlanet * (magnitude / distance);
+        const double inverseDistance = 1.0 / std::sqrt(distanceSquared);
+        const double scale = distanceSquared < radius * radius
+                                 ? planet.gravitationalParameter / (radius * radius * radius)
+                                 : planet.gravitationalParameter * inverseDistance /
+                                       distanceSquared;
+        acceleration += towardPlanet * scale;
     }
     return acceleration;
 }
@@ -52,11 +53,12 @@ void resolvePlanetSurface(const World& world, Ship& ship)
     for (const auto& planet : world.planets)
     {
         const Vec3 fromCenter = ship.position - planet.position;
-        const double distance = fromCenter.length();
         const double collisionDistance = planet.radius + ship.collisionRadius;
-        if (distance >= collisionDistance)
+        const double distanceSquared = fromCenter.lengthSquared();
+        if (distanceSquared >= collisionDistance * collisionDistance)
             continue;
 
+        const double distance = std::sqrt(distanceSquared);
         const Vec3 normal = distance > 1e-9 ? fromCenter * (1.0 / distance) : Vec3{1.0, 0.0, 0.0};
         ship.position = planet.position + normal * collisionDistance;
 
@@ -70,10 +72,10 @@ void turnTowardGoal(World& world,
                     const Player* player,
                     Ship& ship,
                     double dt,
-                    const OrbitRules& rules);
+                    const GameRules& rules);
 
 bool integrateStableOrbit(
-    World& world, Player* player, Ship& ship, double dt, const OrbitRules& rules)
+    World& world, Player* player, Ship& ship, double dt, const GameRules& rules)
 {
     if (!ship.orbitingPlanet || ship.orbitTransferTargetLevel || ship.orbitLevel == 0 ||
         *ship.orbitingPlanet >= world.planets.size() || dt <= 0.0)
@@ -119,7 +121,7 @@ bool integrateStableOrbit(
     return true;
 }
 
-bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const OrbitRules& rules)
+bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const GameRules& rules)
 {
     if (!ship.orbitingPlanet || !ship.orbitTransferTargetLevel)
         return false;
@@ -179,7 +181,7 @@ void turnTowardGoal(World& world,
                     const Player* player,
                     Ship& ship,
                     double dt,
-                    const OrbitRules& rules)
+                    const GameRules& rules)
 {
     if (player && player->goal)
     {
@@ -226,7 +228,7 @@ void updateApproachThrottle(World& world,
                             const Player* player,
                             Ship& ship,
                             double dt,
-                            const OrbitRules& rules)
+                            const GameRules& rules)
 {
     if (!player || !player->goal || player->goal->kind != Target::Kind::Planet ||
         player->goal->id >= world.planets.size())
@@ -247,7 +249,7 @@ void updateApproachThrottle(World& world,
         distanceToInfluence, ship.velocity.length(), closingSpeed, maximumSpeed, dt);
 }
 
-Vec3 commandedThrust(const Ship& ship, const OrbitRules& rules, double maximumSpeed)
+Vec3 commandedThrust(const Ship& ship, const GameRules& rules, double maximumSpeed)
 {
     if (ship.acceleration == AccelerationMode::Accelerate)
     {
@@ -359,7 +361,7 @@ bool completeOrbitTransfer(const World& world, Ship& ship)
     return true;
 }
 
-void integrateShip(World& world, Player* player, Ship& ship, const OrbitRules& rules)
+void integrateShip(World& world, Player* player, Ship& ship, const GameRules& rules)
 {
     const double dt = world.fixedStepSeconds;
     if (integrateOrbitTransfer(world, ship, dt, rules))
@@ -416,7 +418,7 @@ Vec3 gravityAcceleration(const World& world, const Vec3& position)
     return gravityAt(world, position);
 }
 
-void updateMovement(World& world, const OrbitRules& rules)
+void updateMovement(World& world, const GameRules& rules)
 {
     for (auto& slot : world.ships)
     {

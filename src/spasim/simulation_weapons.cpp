@@ -58,11 +58,13 @@ CommandResult executeAction(World& world, Player& player, Ship& ship, const Fire
         return {CommandStatus::Invalid, "Cannot fire on an allied target."};
 
     auto* targetPosition = positionOf(world, Target{Target::Kind::Entity, targetId});
-    if (!targetPosition || ship.position.distanceTo(*targetPosition) > weapon.range)
+    if (!targetPosition)
         return {CommandStatus::Invalid, "Target is outside weapon range."};
 
     const Vec3 direction = *targetPosition - ship.position;
     const double distance = direction.length();
+    if (distance > weapon.range)
+        return {CommandStatus::Invalid, "Target is outside weapon range."};
     const Vec3 forward = forwardVector(ship.orientation);
     const double alignment =
         (forward.x * direction.x + forward.y * direction.y + forward.z * direction.z) /
@@ -120,11 +122,12 @@ CommandResult executeAction(World& world, Player& player, Ship& ship, const Fire
     torpedo.owner = player.id;
     torpedo.team = player.team;
     torpedo.position = ship.position;
-    torpedo.velocity = aim * 100.0;
+    torpedo.velocity = aim * world.torpedoLaunchSpeed;
     torpedo.energy = action.energy;
     torpedo.fieldStrength = action.energy;
     torpedo.damage = action.energy;
-    torpedo.lifeSeconds = 60.0;
+    torpedo.lifeSeconds = world.torpedoLifeSeconds;
+    torpedo.collisionRadius = world.torpedoCollisionRadius;
     torpedo.exists = true;
     *torpedoSlot = torpedo;
     player.selectedObject = player.torpedoId;
@@ -167,8 +170,9 @@ void updateTorpedoes(World& world)
             std::ranges::any_of(world.planets,
                                 [&](const Planet& planet)
                                 {
-                                    return slot->position.distanceTo(planet.position) <=
-                                           planet.radius + slot->collisionRadius;
+                                    const Vec3 offset = slot->position - planet.position;
+                                    const double radius = planet.radius + slot->collisionRadius;
+                                    return offset.lengthSquared() <= radius * radius;
                                 });
         if (hitPlanet)
         {
@@ -185,8 +189,9 @@ void updateTorpedoes(World& world)
                 (slot->team < kTeamCount && targetSlot->team < kTeamCount &&
                  world.teams[slot->team].allied[targetSlot->team] && !world.friendlyFire))
                 continue;
-            if (slot->position.distanceTo(targetSlot->position) <=
-                slot->collisionRadius + targetSlot->collisionRadius)
+            const Vec3 offset = slot->position - targetSlot->position;
+            const double radius = slot->collisionRadius + targetSlot->collisionRadius;
+            if (offset.lengthSquared() <= radius * radius)
             {
                 impact = true;
                 break;
@@ -199,11 +204,6 @@ void updateTorpedoes(World& world)
         slot->exists = false;
         slot->detonated = true;
     }
-}
-
-void updateCombat(World&)
-{
-    // Weapon firing is command-driven; autonomous systems can be added here.
 }
 
 } // namespace spasim::detail

@@ -9,17 +9,17 @@
 namespace spasim
 {
 
-// Validated Lua game rules and the live runtime policies they define.
-class OrbitRules
+// Validated scenario data and live policies loaded from Lua.
+class GameRules
 {
   public:
-    explicit OrbitRules(const std::filesystem::path& scriptPath);
-    ~OrbitRules();
+    explicit GameRules(const std::filesystem::path& scriptPath);
+    ~GameRules();
 
-    OrbitRules(OrbitRules&&) noexcept;
-    OrbitRules& operator=(OrbitRules&&) noexcept;
-    OrbitRules(const OrbitRules&) = delete;
-    OrbitRules& operator=(const OrbitRules&) = delete;
+    GameRules(GameRules&&) noexcept;
+    GameRules& operator=(GameRules&&) noexcept;
+    GameRules(const GameRules&) = delete;
+    GameRules& operator=(const GameRules&) = delete;
 
     double sphereOfInfluenceRadius{};
     std::uint8_t levelCount{};
@@ -30,7 +30,28 @@ class OrbitRules
     double thrustAcceleration{};
     double brakingAcceleration{};
     double maximumAimLeadSeconds{};
+    std::uint64_t randomSeed{};
+    double fixedStepSeconds{};
+    double sessionDurationSeconds{};
+    bool friendlyFire{};
+    bool paused{};
+    Player playerDefaults{};
+    Ship playerShipDefaults{};
+    Ship practiceShipDefaults{};
+    Base baseDefaults{};
+    double torpedoLaunchSpeed{};
+    double torpedoLifeSeconds{};
+    double torpedoCollisionRadius{};
+    EntityId firstEntityId{1};
+    PlayerId firstPlayerId{};
+    WeaponKind defaultWeapon{};
+    std::array<Team, kTeamCount> teams{};
+    std::vector<Planet> planets;
+    std::array<WeaponProfile, kWeaponCount> weapons{};
+    std::array<std::string, kPracticeShipCount> practiceNames{};
+    std::array<Vec3, kPracticeShipCount> practicePositions{};
 
+    void applyScenario(World& world) const;
     [[nodiscard]] std::uint8_t maximumLevel(ShipClass shipClass) const noexcept;
     [[nodiscard]] double orbitRadius(const Planet& planet, std::uint8_t level) const noexcept;
     [[nodiscard]] double speedLimit(std::uint8_t throttleLevel,
@@ -44,9 +65,8 @@ class OrbitRules
     [[nodiscard]] Vec3 weaponAimDirection(const Vec3& relativePosition,
                                           const Vec3& relativeVelocity,
                                           double projectileSpeed) const;
-    [[nodiscard]] double transferRadialStep(double currentRadius,
-                                            double targetRadius,
-                                            double deltaSeconds) const;
+    [[nodiscard]] double
+    transferRadialStep(double currentRadius, double targetRadius, double deltaSeconds) const;
 
   private:
     struct Runtime;

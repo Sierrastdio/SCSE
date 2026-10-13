@@ -129,8 +129,8 @@ Command parseCommand(std::string_view line)
     else if (result.kind == CommandKind::SetGoal)
     {
         double target{};
-        result.hasTarget =
-            parse(first, target) && target >= 1.0 && target <= 4.0 && std::floor(target) == target;
+        result.hasTarget = parse(first, target) && target >= 1.0 && target <= 256.0 &&
+                           std::floor(target) == target;
         if (result.hasTarget)
             result.target = static_cast<std::uint32_t>(target - 1.0);
         if (!second.empty())

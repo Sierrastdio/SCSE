@@ -55,7 +55,7 @@ struct DetonateTorpedo
 };
 struct SetWeaponProfile
 {
-    WeaponKind weapon{WeaponKind::Aggstroms};
+    WeaponKind weapon{WeaponKind::Slot0};
 };
 struct RepairVessel
 {
@@ -135,7 +135,7 @@ class Simulation
 
   private:
     World world_;
-    OrbitRules orbitRules_;
+    GameRules gameRules_;
 };
 
 } // namespace spasim

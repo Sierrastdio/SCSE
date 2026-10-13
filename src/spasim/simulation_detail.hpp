@@ -18,13 +18,13 @@ namespace spasim::detail
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetAcceleration&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetThrottleLevel&);
 [[nodiscard]] CommandResult
-executeAction(World&, Player&, Ship&, const SetGoal&, const OrbitRules&);
+executeAction(World&, Player&, Ship&, const SetGoal&, const GameRules&);
 [[nodiscard]] CommandResult
-executeAction(World&, Player&, Ship&, const SetOrbitLevel&, const OrbitRules&);
+executeAction(World&, Player&, Ship&, const SetOrbitLevel&, const GameRules&);
 [[nodiscard]] CommandResult
-executeAction(World&, Player&, Ship&, const SetShipClass&, const OrbitRules&);
+executeAction(World&, Player&, Ship&, const SetShipClass&, const GameRules&);
 [[nodiscard]] CommandResult
-executeAction(World&, Player&, Ship&, const SelectTarget&, const OrbitRules&);
+executeAction(World&, Player&, Ship&, const SelectTarget&, const GameRules&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const FirePhasor&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const FireTorpedo&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const DetonateTorpedo&);
@@ -34,10 +34,8 @@ executeAction(World&, Player&, Ship&, const SelectTarget&, const OrbitRules&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const LoadFromPlanet&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetAlliances&);
 
-void updateMovement(World& world, const OrbitRules& rules);
+void updateMovement(World& world, const GameRules& rules);
 void updateTorpedoes(World& world);
-void updateCombat(World& world);
-void updateEconomy(World& world);
 void writeSnapshot(const World& world, std::ostream& output);
 
 } // namespace spasim::detail

@@ -76,9 +76,4 @@ CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& ac
     return {CommandStatus::Applied, "Alliance updated."};
 }
 
-void updateEconomy(World&)
-{
-    // Planetary growth/revolt and autonomous resource transfer await recovered source formulas.
-}
-
 } // namespace spasim::detail

@@ -2,6 +2,96 @@
 -- Level 1 is on the sphere-of-influence edge; higher levels are progressively
 -- closer to the planet. Level 4 reaches the current parking-orbit radius.
 local rules = {
+    -- The starter scenario and its public IDs live here so projects can replace
+    -- the SPASIM roster without changing the simulation code.
+    scenario = {
+        ids = {first_entity = 1, first_player = 0, default_weapon = 0},
+        -- Runtime and entity templates are copied into the world at startup.
+        world = {
+            random_seed = 0x53504153494D,
+            fixed_step_seconds = 0.1,
+            session_duration_seconds = 900,
+            friendly_fire = false,
+            paused = false,
+        },
+        player_defaults = {goal_orbit_level = 1, phasor_power = 1, phasor_diameter = 1},
+        player_ship_defaults = {
+            class = "small", turn_rate = 30, throttle_level = 3, collision_radius = 20,
+            velocity = {0, 0, 0}, yaw = 0, pitch = 0, desired_yaw = 0, desired_pitch = 0,
+            speed = 0, warp = 0, acceleration = "cruise", energy = 10000, material = 0,
+            hull = 100, hull_damage = 0, shields = 100, skill = 1, destroyed = false,
+        },
+        practice_ship_defaults = {
+            class = "small", turn_rate = 0, throttle_level = 3, collision_radius = 20,
+            velocity = {0, 0, 0}, yaw = 0, pitch = 0, desired_yaw = 0, desired_pitch = 0,
+            speed = 0, warp = 0, acceleration = "cruise", energy = 10000, material = 0,
+            hull = 100, hull_damage = 0, shields = 100, skill = 0, destroyed = false,
+        },
+        base_defaults = {
+            collision_radius = 50, energy = 10000, material = 100,
+            hull = 100, hull_damage = 0, shields = 100, skill = 1, destroyed = false,
+        },
+        torpedo_defaults = {launch_speed = 100, life_seconds = 60, collision_radius = 2},
+        -- Random spawns use a sphere around the home planet; fixed spawns use spawn_offset.
+        -- Orbit level 0 starts in free flight. Positive levels start in circular orbit.
+        teams = {
+            {id = 0, name = "Aggstroms", home_planet_id = 0, ship_class = "small",
+             starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
+             spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
+             spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {0}},
+            {id = 1, name = "Fouriers", home_planet_id = 1, ship_class = "small",
+             starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
+             spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
+             spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {1}},
+            {id = 2, name = "Diffractions", home_planet_id = 2, ship_class = "small",
+             starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
+             spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
+             spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {2}},
+            {id = 3, name = "Lasers", home_planet_id = 3, ship_class = "small",
+             starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
+             spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
+             spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {3}},
+        },
+        planets = {
+            {id = 0, name = "Planet 1", position = {-1000, 0, 0}, radius = 30,
+             sphere_of_influence_radius = 500,
+             gravity = 2000, parking_altitude = 90, population = 100, energy = 100,
+             material = 100, standard_of_living = 0.3, skill = 0.3,
+             controlling_team_id = -1, revolt_at_seconds = 0},
+            {id = 1, name = "Planet 2", position = {1000, 0, 0}, radius = 30,
+             sphere_of_influence_radius = 500,
+             gravity = 2000, parking_altitude = 90, population = 100, energy = 100,
+             material = 100, standard_of_living = 0.3, skill = 0.3,
+             controlling_team_id = -1, revolt_at_seconds = 0},
+            {id = 2, name = "Planet 3", position = {0, 1000, 0}, radius = 30,
+             sphere_of_influence_radius = 500,
+             gravity = 2000, parking_altitude = 90, population = 100, energy = 100,
+             material = 100, standard_of_living = 0.3, skill = 0.3,
+             controlling_team_id = -1, revolt_at_seconds = 0},
+            {id = 3, name = "Planet 4", position = {0, 0, 1000}, radius = 30,
+             sphere_of_influence_radius = 500,
+             gravity = 2000, parking_altitude = 90, population = 100, energy = 100,
+             material = 100, standard_of_living = 0.3, skill = 0.3,
+             controlling_team_id = -1, revolt_at_seconds = 0},
+        },
+        weapons = {
+            {id = 0, name = "Aggstroms", energy_cost = 10, damage = 12, range = 2000,
+             projectile_speed = 0, explosive = false, splash_radius = 0},
+            {id = 1, name = "Fouriers", energy_cost = 20, damage = 20, range = 2500,
+             projectile_speed = 0, explosive = false, splash_radius = 0},
+            {id = 2, name = "Diffractions", energy_cost = 30, damage = 28, range = 3000,
+             projectile_speed = 0, explosive = false, splash_radius = 0},
+            {id = 3, name = "Lasers", energy_cost = 15, damage = 16, range = 3500,
+             projectile_speed = 0, explosive = false, splash_radius = 0},
+        },
+        practice_ships = {
+            {team_id = 0, name = "Practice target Aggstroms", position = {100, 0, 0}},
+            {team_id = 1, name = "Practice target Fouriers", position = {0, 100, 0}},
+            {team_id = 2, name = "Practice target Diffractions", position = {-100, 0, 0}},
+            {team_id = 3, name = "Practice target Lasers", position = {0, -100, 0}},
+        },
+    },
+
     orbit = {
         sphere_of_influence_radius = 500.0,
         level_count = 4,

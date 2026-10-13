@@ -24,10 +24,10 @@ void ConsoleApp::printHelp() const
 {
     output_ << "Commands: status, teams, planets, turn <x> <y> <z>, accelerate, brake, cruise, "
                "throttle <1-4>, "
-               "goal <planet 1-4> [orbit-level], orbit <level>, class <small|medium|large>, "
+               "goal <planet> [orbit-level], orbit <level>, class <small|medium|large>, "
                "select <entity-id>, weapon <1-4>, fire [power], torpedo <energy>, detonate, repair "
                "<amount>, "
-               "load <energy|material> <amount> <planet 1-4>, transfer <energy|material> <amount> "
+               "load <energy|material> <amount> <planet>, transfer <energy|material> <amount> "
                "<entity-id>, "
                "ally <team 1-4> <team 1-4>, pause, resume, speed [0.1-10000], quit\n"
                "Select accepts an entity ID (select 2), ship-2, ship #2, or a practice target "
@@ -69,7 +69,7 @@ void ConsoleApp::printStatus(PlayerId playerId) const
             << ship->combat.shields << " | hull " << ship->combat.hull - ship->combat.hullDamage
             << " | sim " << simulation_.world().elapsedSeconds << "s\n";
     if (ship->orbitingPlanet && !ship->orbitTransferTargetLevel &&
-        *ship->orbitingPlanet < kPlanetCount)
+        *ship->orbitingPlanet < simulation_.world().planets.size())
     {
         const auto& planet = simulation_.world().planets[*ship->orbitingPlanet];
         output_ << "Orbiting: " << planet.name << " at level "
@@ -80,7 +80,7 @@ void ConsoleApp::printStatus(PlayerId playerId) const
         output_ << "\n";
     }
     else if (player->goal && player->goal->kind == Target::Kind::Planet &&
-             player->goal->id < kPlanetCount)
+             player->goal->id < simulation_.world().planets.size())
         output_ << "Navigation goal: " << simulation_.world().planets[player->goal->id].name
                 << " (orbit level " << static_cast<int>(player->goalOrbitLevel) << ")"
                 << "\n";
@@ -88,7 +88,8 @@ void ConsoleApp::printStatus(PlayerId playerId) const
     {
         output_ << "Orbit transfer in progress: level "
                 << static_cast<int>(*ship->orbitTransferTargetLevel);
-        if (ship->orbitingPlanet && *ship->orbitingPlanet < kPlanetCount)
+        if (ship->orbitingPlanet &&
+            *ship->orbitingPlanet < simulation_.world().planets.size())
         {
             const auto& planet = simulation_.world().planets[*ship->orbitingPlanet];
             const auto level = *ship->orbitTransferTargetLevel;
@@ -295,7 +296,7 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
         {
             output_ << "Usage: "
                     << (command.kind == CommandKind::Load
-                            ? "load <energy|material> <amount> <planet 1-4>"
+                            ? "load <energy|material> <amount> <planet>"
                             : "transfer <energy|material> <amount> <entity-id>")
                     << '\n';
             break;
@@ -307,16 +308,16 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
             break;
         }
         if (command.kind == CommandKind::Load &&
-            (command.target < 1 || command.target > kPlanetCount))
+            (command.target < 1 || command.target > simulation_.world().planets.size()))
         {
-            output_ << "Planet must be 1-4.\n";
+            output_ << "Planet must be 1-" << simulation_.world().planets.size() << ".\n";
             break;
         }
         execute(toWorldCommand(command, playerId));
         break;
     case CommandKind::SetGoal:
         if (!command.hasTarget)
-            output_ << "Usage: goal <planet 1-4> [orbit-level]\n";
+            output_ << "Usage: goal <planet> [orbit-level]\n";
         else if (command.hasSecond && (command.second < 1 || command.second > kMaxOrbitLevels ||
                                        std::floor(command.second) != command.second))
             output_ << "Orbit level must be a whole number from 1 to 8.\n";

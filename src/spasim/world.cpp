@@ -9,9 +9,14 @@
 namespace spasim
 {
 
+double Vec3::lengthSquared() const noexcept
+{
+    return x * x + y * y + z * z;
+}
+
 double Vec3::length() const noexcept
 {
-    return std::sqrt(x * x + y * y + z * z);
+    return std::sqrt(lengthSquared());
 }
 
 double Vec3::distanceTo(const Vec3& other) const noexcept
@@ -53,16 +58,16 @@ Vec3 operator*(Vec3 value, double scalar) noexcept
 
 const Player* World::findPlayer(PlayerId id) const noexcept
 {
-    if (id >= playerSlots.size() || !playerSlots[id])
-        return nullptr;
-    return &*playerSlots[id];
+    const auto found = std::ranges::find_if(
+        playerSlots, [id](const auto& slot) { return slot && slot->id == id; });
+    return found == playerSlots.end() ? nullptr : &**found;
 }
 
 Player* World::findPlayer(PlayerId id) noexcept
 {
-    if (id >= playerSlots.size() || !playerSlots[id])
-        return nullptr;
-    return &*playerSlots[id];
+    const auto found = std::ranges::find_if(
+        playerSlots, [id](const auto& slot) { return slot && slot->id == id; });
+    return found == playerSlots.end() ? nullptr : &**found;
 }
 
 const Ship* World::findShip(EntityId id) const noexcept
@@ -129,22 +134,6 @@ const char* toString(ObjectKind value) noexcept
     return "unknown";
 }
 
-const char* toString(WeaponKind value) noexcept
-{
-    switch (value)
-    {
-    case WeaponKind::Aggstroms:
-        return "Aggstroms";
-    case WeaponKind::Fouriers:
-        return "Fouriers";
-    case WeaponKind::Diffractions:
-        return "Diffractions";
-    case WeaponKind::Lasers:
-        return "Lasers";
-    }
-    return "unknown";
-}
-
 const char* toString(AccelerationMode value) noexcept
 {
     switch (value)
@@ -173,61 +162,18 @@ const char* toString(ShipClass value) noexcept
     return "unknown";
 }
 
-World makeInitialWorld(std::uint64_t seed)
+World makeInitialWorld(std::optional<std::uint64_t> seed)
 {
     World world;
-    world.random.seed(seed);
-
-    constexpr std::array<const char*, kTeamCount> teamNames{
-        "Aggstroms", "Fouriers", "Diffractions", "Lasers"};
-    for (std::size_t i = 0; i < world.teams.size(); ++i)
-    {
-        world.teams[i].id = static_cast<TeamId>(i);
-        world.teams[i].name = teamNames[i];
-        world.teams[i].allied[i] = true;
-    }
-
-    constexpr std::array<Vec3, kPlanetCount> planetPositions{
-        {{-1000.0, 0.0, 0.0}, {0.0, -1000.0, 0.0}, {0.0, 0.0, -1000.0}, {1000.0, 1000.0, 1000.0}}};
-    for (std::size_t i = 0; i < world.planets.size(); ++i)
-    {
-        auto& planet = world.planets[i];
-        planet.id = static_cast<PlanetId>(i);
-        planet.name = "Planet " + std::to_string(i + 1);
-        planet.position = planetPositions[i];
-        planet.radius = 30.0;
-        planet.gravitationalParameter = 2000.0;
-        planet.parkingOrbitAltitude = 90.0;
-        planet.sphereOfInfluenceRadius = 500.0;
-        // The printed listing gives random ranges/formulas, but the runtime's
-        // operator semantics and initialized constants are not fully recoverable.
-        // These neutral starting values are placeholders pending source-data recovery.
-        planet.population = 100.0;
-        planet.antiEntropy = 100.0;
-        planet.rawMaterial = 100.0;
-        planet.standardOfLiving = 0.3;
-        planet.skill = 0.3;
-    }
-    world.weapons = {{{"Aggstroms", 10.0, 12.0, 2000.0, 0.0, false, 0.0},
-                      {"Fouriers", 20.0, 20.0, 2500.0, 0.0, false, 0.0},
-                      {"Diffractions", 30.0, 28.0, 3000.0, 0.0, false, 0.0},
-                      {"Lasers", 15.0, 16.0, 3500.0, 0.0, false, 0.0}}};
+    world.randomSeedOverride = seed;
 
     // Four inert practice ships provide immediate, visible targets for testing
     // selection and weapons. They sit in a compact central range near every spawn.
-    constexpr std::array<Vec3, kTeamCount> practicePositions{
-        {{100.0, 0.0, 0.0}, {0.0, 100.0, 0.0}, {-100.0, 0.0, 0.0}, {0.0, -100.0, 0.0}}};
     for (std::size_t i = 0; i < kPracticeShipCount; ++i)
     {
         Ship target;
         target.id = world.nextEntityId++;
         target.owner = kNoPlayer;
-        target.team = static_cast<TeamId>(i);
-        target.name = "Practice target " + world.teams[i].name;
-        target.position = practicePositions[i];
-        target.resources.energy = 10000.0;
-        target.combat = {.hull = 100.0, .hullDamage = 0.0, .shields = 100.0, .skill = 0.0};
-        target.acceleration = AccelerationMode::Cruise;
         target.playerControlled = false;
         world.ships[i] = std::move(target);
     }
@@ -252,52 +198,82 @@ std::optional<PlayerId> joinTeam(World& world, TeamId team, std::string callSign
         baseSlot == world.bases.end() || torpedoSlot == world.torpedoes.end())
         return std::nullopt;
     const auto playerIndex = static_cast<std::size_t>(playerSlot - world.playerSlots.begin());
-    const auto id = static_cast<PlayerId>(playerIndex);
+    if (world.playerIdStart > kNoPlayer - 1 - playerIndex)
+        return std::nullopt;
+    const auto id = static_cast<PlayerId>(world.playerIdStart + playerIndex);
     {
-        const auto planetId = static_cast<PlanetId>(team);
-        std::uniform_real_distribution<double> vertical(-1.0, 1.0);
+        const auto planetId = world.teams[team].homePlanet;
+        const auto& teamSettings = world.teams[team];
+        std::uniform_real_distribution<double> vertical(teamSettings.spawnVerticalMinimum,
+                                                        teamSettings.spawnVerticalMaximum);
         std::uniform_real_distribution<double> azimuth(0.0, 2.0 * std::numbers::pi);
-        const double z = vertical(world.random);
-        const double angle = azimuth(world.random);
-        const double planar = std::sqrt(1.0 - z * z);
-        const Vec3 spawn =
-            world.planets[planetId].position +
-            Vec3{70.0 * planar * std::cos(angle), 70.0 * planar * std::sin(angle), 70.0 * z};
+        Vec3 spawnOffset = teamSettings.spawnOffset;
+        if (teamSettings.randomSpawn)
+        {
+            const double z = vertical(world.random);
+            const double angle = azimuth(world.random);
+            const double planar = std::sqrt(1.0 - z * z);
+            spawnOffset = {teamSettings.spawnRadius * planar * std::cos(angle),
+                           teamSettings.spawnRadius * planar * std::sin(angle),
+                           teamSettings.spawnRadius * z};
+        }
+        const double spawnRadius = spawnOffset.length();
+        Vec3 spawnDirection = spawnRadius > 1e-9 ? spawnOffset * (1.0 / spawnRadius)
+                                                  : Vec3{1.0, 0.0, 0.0};
+        const auto startOrbit = teamSettings.startingOrbitLevel;
+        if (startOrbit > 0)
+            spawnOffset = spawnDirection * world.planets[planetId].orbitLevelRadii[startOrbit - 1];
+        const Vec3 spawn = world.planets[planetId].position + spawnOffset;
 
-        Player player;
+        Player player = world.playerDefaults;
         player.id = id;
         player.team = team;
         player.callSign = std::move(callSign);
         player.joined = true;
+        player.weapon = world.defaultWeapon;
         player.shipId = world.nextEntityId++;
         player.baseId = world.nextEntityId++;
         player.torpedoId = world.nextEntityId++;
         player.selectedObject = player.shipId;
 
-        Ship ship;
+        Ship ship = world.playerShipDefaults;
         ship.id = player.shipId;
         ship.owner = id;
         ship.team = team;
         ship.name = player.callSign;
+        ship.shipClass = teamSettings.shipClass;
         ship.playerControlled = true;
         ship.position = spawn;
-        ship.resources.energy = 10000.0;
-        ship.combat = {.hull = 100.0, .hullDamage = 0.0, .shields = 100.0, .skill = 1.0};
+        if (startOrbit > 0)
+        {
+            ship.orbitingPlanet = planetId;
+            ship.orbitLevel = startOrbit;
+            const Vec3 axis = std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0}
+                                                               : Vec3{0.0, 1.0, 0.0};
+            Vec3 tangent{axis.y * spawnDirection.z - axis.z * spawnDirection.y,
+                         axis.z * spawnDirection.x - axis.x * spawnDirection.z,
+                         axis.x * spawnDirection.y - axis.y * spawnDirection.x};
+            tangent = tangent * (1.0 / tangent.length());
+            const double orbitRadius = world.planets[planetId].orbitLevelRadii[startOrbit - 1];
+            const double orbitSpeed =
+                std::sqrt(world.planets[planetId].gravitationalParameter / orbitRadius);
+            ship.velocity = tangent * orbitSpeed;
+            ship.speed = ship.warp = orbitSpeed;
+        }
 
-        Base base;
+        Base base = world.baseDefaults;
         base.id = player.baseId;
         base.owner = id;
         base.team = team;
         base.homePlanet = planetId;
-        base.position = world.planets[planetId].position;
-        base.resources = {.energy = 10000.0, .rawMaterial = 100.0};
-        base.combat = {.hull = 100.0, .hullDamage = 0.0, .shields = 100.0, .skill = 1.0};
+        base.position = world.planets[planetId].position + teamSettings.baseOffset;
 
         Torpedo torpedo;
         torpedo.id = player.torpedoId;
         torpedo.owner = id;
         torpedo.team = team;
         torpedo.position = spawn;
+        torpedo.collisionRadius = world.torpedoCollisionRadius;
 
         world.playerSlots[playerIndex] = std::move(player);
         *shipSlot = ship;
@@ -310,10 +286,12 @@ std::optional<PlayerId> joinTeam(World& world, TeamId team, std::string callSign
 
 void removePlayer(World& world, PlayerId playerId)
 {
-    if (playerId >= world.playerSlots.size() || !world.playerSlots[playerId])
+    auto found = std::ranges::find_if(
+        world.playerSlots, [playerId](const auto& slot) { return slot && slot->id == playerId; });
+    if (found == world.playerSlots.end())
         return;
-    const auto player = *world.playerSlots[playerId];
-    world.playerSlots[playerId].reset();
+    const auto player = **found;
+    found->reset();
     for (auto& slot : world.ships)
         if (slot && slot->id == player.shipId)
             slot.reset();

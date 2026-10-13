@@ -24,6 +24,10 @@ $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
 .\build-ucrt\neonspasim.exe
 ```
 
+```powershell
+python tools/render_debug.py --watch
+```
+
 CMake copies the Lua rules beside the executable. `lua54.dll` is found through `PATH`; the PowerShell line above adds the UCRT64 runtime directory for that terminal. If CMake cannot find Lua, verify that `lua.h` and `liblua.dll.a` exist at the paths above, then rerun the configure command.
 
 ### VS Code CMake Tools
@@ -36,7 +40,7 @@ The initial executable creates a four-team SPASIM scenario and advances its fixe
 
 ## Current console commands
 
-`status`, `teams`, `planets`, `turn <x> <y> <z>`, `accelerate`, `brake`, `cruise`, `throttle <1-4>`, `goal <planet 1-4> [orbit-level]`, `orbit <level>`, `class <small|medium|large>`, `select <entity-id>`, `weapon <1-4>`, `fire [power]`, `torpedo <energy>`, `detonate`, `repair <amount>`, `load <energy|material> <amount> <planet 1-4>`, `transfer <energy|material> <amount> <entity-id>`, `ally <team 1-4> <team 1-4>`, `snapshot [off]`, `pause`, `resume`, `speed [multiplier]`, and `quit`.
+`status`, `teams`, `planets`, `turn <x> <y> <z>`, `accelerate`, `brake`, `cruise`, `throttle <1-4>`, `goal <planet> [orbit-level]`, `orbit <level>`, `class <small|medium|large>`, `select <entity-id>`, `weapon <1-4>`, `fire [power]`, `torpedo <energy>`, `detonate`, `repair <amount>`, `load <energy|material> <amount> <planet>`, `transfer <energy|material> <amount> <entity-id>`, `ally <team 1-4> <team 1-4>`, `snapshot [off]`, `pause`, `resume`, `speed [multiplier]`, and `quit`.
 
 `turn` takes a **direction vector**, not Euler angles or a world position. For example, `turn 0 1 0` points along +Y, and `turn 0 0 1` points upward along +Z. Scale does not matter; the vector is normalized by the heading conversion. The ship turns toward that direction at its configured turn rate.
 
@@ -49,6 +53,10 @@ The initial executable creates a four-team SPASIM scenario and advances its fixe
 Example: `class small`, `goal 2 4` requests planet 2's innermost orbit; from orbit, `orbit 1` returns to the outer boundary. `class large` restricts the ship to level 1, and deeper requests are rejected with an explanatory message. The current orbit controller uses simplified thrust and circularization rules for gameplay; it is not a high-fidelity Hohmann transfer model.
 
 Weapon numbering follows the source roster: 1 Aggstroms, 2 Fouriers, 3 Diffractions, 4 Lasers. All four profiles currently use provisional values because the original lookup data is missing from the text export.
+
+### Scenario configuration
+
+Edit the `scenario` table in `scripts/orbit_rules.lua` to change world timing and seed, player/ship/base/torpedo defaults, team names and home planets, ship classes and spawn/orbit settings, planet coordinates/gravity/orbit ranges/starting values, weapon profiles, practice targets, alliances, and ID starting values. Planet IDs must remain zero-based and contiguous; the Lua loader builds the planet list from this table at startup. Team and weapon IDs remain fixed slots.
 
 ## Debug renderer
 

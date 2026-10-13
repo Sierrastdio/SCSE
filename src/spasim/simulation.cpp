@@ -10,15 +10,15 @@ namespace spasim
 {
 
 Simulation::Simulation(World world, std::filesystem::path rulesPath)
-    : world_(std::move(world)), orbitRules_(rulesPath)
+    : world_(std::move(world)), gameRules_(rulesPath)
 {
+    gameRules_.applyScenario(world_);
     for (auto& planet : world_.planets)
     {
-        planet.sphereOfInfluenceRadius = orbitRules_.sphereOfInfluenceRadius;
-        planet.orbitLevelCount = orbitRules_.levelCount;
-        for (std::uint8_t level = 1; level <= orbitRules_.levelCount; ++level)
+        planet.orbitLevelCount = gameRules_.levelCount;
+        for (std::uint8_t level = 1; level <= gameRules_.levelCount; ++level)
         {
-            planet.orbitLevelRadii[level - 1] = orbitRules_.orbitRadius(planet, level);
+            planet.orbitLevelRadii[level - 1] = gameRules_.orbitRadius(planet, level);
             if (planet.orbitLevelRadii[level - 1] < planet.radius + planet.parkingOrbitAltitude)
                 throw std::runtime_error(
                     "Orbit rules place an orbit inside the planet's safe orbit.");
@@ -28,10 +28,8 @@ Simulation::Simulation(World world, std::filesystem::path rulesPath)
 
 void Simulation::step()
 {
-    detail::updateMovement(world_, orbitRules_);
+    detail::updateMovement(world_, gameRules_);
     detail::updateTorpedoes(world_);
-    detail::updateCombat(world_);
-    detail::updateEconomy(world_);
     world_.elapsedSeconds += world_.fixedStepSeconds;
     ++world_.tick;
 }
@@ -60,7 +58,7 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand& command
                                std::is_same_v<Action, SetShipClass> ||
                                std::is_same_v<Action, SelectTarget>)
             {
-                return detail::executeAction(world_, *player, *ship, action, orbitRules_);
+                return detail::executeAction(world_, *player, *ship, action, gameRules_);
             }
             else
             {
