@@ -1,6 +1,6 @@
 #pragma once
 
-#include "spasim/model.hpp"
+#include "engine/types.hpp"
 
 #include <string_view>
 
@@ -56,3 +56,5 @@ struct Command
 [[nodiscard]] Command parseCommand(std::string_view line);
 
 } // namespace spasim
+
+

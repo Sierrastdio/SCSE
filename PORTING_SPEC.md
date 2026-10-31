@@ -36,7 +36,7 @@ Use embedded Lua 5.4 for game rules and rapid balance iteration while keeping si
 - C++ owns entity/world state, deterministic stepping, forces, collision, and final movement updates.
 - Lua supplies editable policy/configuration such as ship-class limits, orbit-level layout, orbit-transfer maneuver policy, weapon profiles, scenarios, and later economy rules.
 - Scripts return validated rule values or policy decisions through a narrow API. They do not receive unrestricted mutable references to `World`, `Ship`, or `Planet`.
-- Begin with `scripts/orbit_rules.lua`. The C++ loader validates the rule table at startup; invalid values stop startup with a useful error. Rule edits take effect after restart.
+- Load `scripts/game_rules.lua`. The C++ loader validates the rule table at startup; invalid values stop startup with a useful error. Rule edits take effect after restart.
 - The current console executable requires Lua 5.4.
 
 ## Program identity and dependencies
@@ -119,13 +119,14 @@ Represent each legacy command as a function taking `(World&, PlayerId, CommandAr
 
 ### Current repository implementation
 
-The structured core currently exists in `src/spasim/`:
+The simulation engine currently exists in `src/engine/`; Lua loading and policy code lives in `src/lua_rules/`:
 
-- `model.hpp`: `World`, `Team`, `Player`, `Ship`, `Base`, `Torpedo`, `Planet`, IDs, vectors, resources, combat and movement state.
-- `world.cpp`: four-team/four-planet initial world, 24 fixed player slots, deterministic random generator, team join/leave and entity lookup.
-- `simulation.cpp`: fixed-step dispatch, basic heading/acceleration movement and torpedo integration, plus typed `WorldCommand` application.
-- `command.cpp`: console vocabulary/parser, translating strings into compact values before the UI calls the core.
-- `console.cpp`: separate terminal sign-on and status/team/planet presentation.
+- `types.hpp`: `World`, `Team`, `Player`, `Ship`, `Base`, `Torpedo`, `Planet`, IDs, vectors, resources, combat and movement state.
+- `world.cpp`: scenario-sized world slots, deterministic random generator, team join/leave and entity lookup. Team, player-per-team, planet, and weapon counts are loaded from Lua.
+- `engine.cpp` and `actions.hpp`: fixed-step dispatch and typed `WorldCommand` actions.
+- `movement.cpp`, `navigation.cpp`, `combat.cpp`, `economy.cpp`, and `math.cpp`: engine systems grouped by behavior.
+- `src/console/`: terminal sign-on, text command parsing, and JSON debug snapshots, kept outside the reusable engine.
+- `src/lua_rules/`: Lua runtime, scenario parsing, and value validation.
 - `main.cpp` and `CMakeLists.txt`: executable entry point and C++20 build.
 
 This is a structured core, not yet a faithful rules port. Placeholder starting resources, simple movement, and inactive economy/hit resolution are explicitly provisional. Replace each only after reconciling source operators and common-memory initial values. Goals are typed as entity or planet targets. The core intentionally has no real-time main loop yet; the application/engine loop should be added only after its simulation and input facilities are complete.
@@ -136,9 +137,9 @@ The sample console now runs a fixed-step loop while a dedicated input reader fee
 
 The console `turn x y z` input is interpreted as a desired forward direction vector, not yaw/pitch angles and not a world-space destination. The vector is converted to heading/pitch and the ship slews toward it at its configured turn rate. Status prints the current normalized facing vector and the internal yaw/pitch angles so a slow turn can be distinguished from a failed command.
 
-Lua currently provides the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. `select` keeps the ship turning toward its target while Lua updates the aim direction; finite-speed projectile profiles can use the Lua intercept solution. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `scripts/orbit_rules.lua`.
+Lua currently provides the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. `select` keeps the ship turning toward its target while Lua updates the aim direction; finite-speed projectile profiles can use the Lua intercept solution. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `scripts/game_rules.lua`.
 
-For debug rendering, `Simulation::writeSnapshot` exports entity/planet state as JSON without adding a graphics dependency to the core. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
+For debug rendering, the console layer exports entity/planet state as JSON without adding a graphics dependency to the engine. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
 
 Current console-playable operations include team sign-on, status/team/planet listings, heading/acceleration, planet goals, target selection, four selectable weapon profiles, forward-arc phasor firing, torpedo launch/impact/detonation, base-range repair, planet loading, nearby entity resource transfer, and alliance toggles. These provide a coherent playable shell, but do not yet reproduce the whole 36-key menu or NOS station/network session behavior.
 
@@ -196,4 +197,4 @@ Line references refer to numbered source statements printed in the attachment:
 
 ## User-requested feature backlog
 
-- **Prototype implemented:** Ship classes restrict access to inner orbit levels, and an automatic controller transfers between levels. Current class limits and radii are provisional values in `scripts/orbit_rules.lua` and need playtesting.
+- **Prototype implemented:** Ship classes restrict access to inner orbit levels, and an automatic controller transfers between levels. Current class limits and radii are provisional values in `scripts/game_rules.lua` and need playtesting.

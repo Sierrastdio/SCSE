@@ -1,21 +1,40 @@
 #!/usr/bin/env python3
-"""Dependency-free Tkinter viewer for NEONspasim JSON snapshots."""
+"""Dependency-free Tkinter viewer for SCSE JSON snapshots."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import math
-import tkinter as tk
 from pathlib import Path
-from tkinter import ttk
+
+try:
+    import tkinter as tk
+    from tkinter import ttk
+except ImportError as error:
+    raise SystemExit(
+        "Tkinter is required for the debug viewer. On Arch Linux install it with: sudo pacman -S tk"
+    ) from error
 
 
 TEAM_COLORS = ["#35a9ff", "#ff5d67", "#b18aff", "#ffc34d"]
 
 
+def find_snapshot() -> Path:
+    project = Path(__file__).resolve().parents[1]
+    candidates = {Path.cwd() / "debug" / "world.json", project / "debug" / "world.json"}
+    for pattern in ("build*/debug/world.json", "cmake-build-*/debug/world.json"):
+        candidates.update(project.glob(pattern))
+    if Path.cwd().name.startswith(("build", "cmake-build")):
+        candidates.add(Path.cwd().parent / "debug" / "world.json")
+    existing = [path for path in candidates if path.is_file()]
+    return max(existing, key=lambda path: path.stat().st_mtime) if existing else project / "debug" / "world.json"
+
+
 class DebugViewer:
-    def __init__(self, path: Path, watch: bool, interval_ms: int, horizon: float) -> None:
+    def __init__(self, path: Path | None, watch: bool, interval_ms: int, horizon: float) -> None:
+        self.explicit_path = path
+        self.path = path or find_snapshot()
         self.path = path
         self.watch = watch
         self.interval_ms = interval_ms
@@ -32,7 +51,7 @@ class DebugViewer:
         self.snapshot: dict = {"tick": 0, "time": 0, "entities": [], "planets": []}
 
         self.root = tk.Tk()
-        self.root.title("SPASIM debug renderer")
+        self.root.title("SCSE debug renderer")
         self.root.geometry("1100x760")
         self.root.configure(bg="#15191f")
 
@@ -104,6 +123,8 @@ class DebugViewer:
 
     def refresh(self) -> None:
         try:
+            if self.explicit_path is None:
+                self.path = find_snapshot()
             with self.path.open("r", encoding="utf-8") as source:
                 snapshot = json.load(source)
             self.snapshot = snapshot
@@ -113,7 +134,8 @@ class DebugViewer:
                 trail = self.trails.setdefault(int(entity["id"]), [])
                 trail.append((entity["x"], entity["y"], entity["z"]))
                 del trail[:-180]
-            self.hud.configure(text=f"t={snapshot.get('time', 0):.1f}s   tick={snapshot.get('tick', 0)}   "
+            self.hud.configure(text=f"{self.path}   t={snapshot.get('time', 0):.1f}s   "
+                                     f"tick={snapshot.get('tick', 0)}   "
                                      f"objects={len(snapshot.get('entities', []))}   projection={self.plane}")
             self.update_details(snapshot)
             self.redraw()
@@ -327,7 +349,8 @@ class DebugViewer:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("snapshot", nargs="?", type=Path, default=Path("debug/world.json"))
+    parser.add_argument("snapshot", nargs="?", type=Path,
+                        help="snapshot JSON path (auto-detects debug/world.json if omitted)")
     parser.add_argument("--watch", action="store_true", help="reload snapshots while the game is running")
     parser.add_argument("--interval", type=int, default=200, help="refresh interval in milliseconds")
     parser.add_argument("--horizon", type=float, default=10.0, help="seconds represented by each direction line")

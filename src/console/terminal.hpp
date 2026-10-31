@@ -1,6 +1,7 @@
 #pragma once
 
-#include "spasim/simulation.hpp"
+#include "console/command_parser.hpp"
+#include "engine/engine.hpp"
 
 #include <iosfwd>
 #include <atomic>
@@ -40,3 +41,5 @@ class ConsoleApp
 };
 
 } // namespace spasim
+
+

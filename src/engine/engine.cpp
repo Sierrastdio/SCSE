@@ -1,6 +1,6 @@
-#include "spasim/simulation.hpp"
+#include "engine/engine.hpp"
 
-#include "spasim/simulation_detail.hpp"
+#include "engine/detail.hpp"
 
 #include <type_traits>
 #include <stdexcept>
@@ -68,9 +68,6 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand& command
         command);
 }
 
-void Simulation::writeSnapshot(std::ostream& output) const
-{
-    detail::writeSnapshot(world_, output);
-}
-
 } // namespace spasim
+
+

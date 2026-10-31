@@ -1,6 +1,7 @@
-#include "spasim/console.hpp"
+#include "console/terminal.hpp"
+#include "console/snapshot.hpp"
 
-#include "spasim/world.hpp"
+#include "engine/world.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -22,16 +23,22 @@ ConsoleApp::ConsoleApp(Simulation& simulation, std::istream& input, std::ostream
 
 void ConsoleApp::printHelp() const
 {
+    const auto teamCount = simulation_.world().teams.size();
+    const auto weaponCount = simulation_.world().weapons.size();
     output_ << "Commands: status, teams, planets, turn <x> <y> <z>, accelerate, brake, cruise, "
-               "throttle <1-4>, "
+               "throttle <1-4>, \n"
                "goal <planet> [orbit-level], orbit <level>, class <small|medium|large>, "
-               "select <entity-id>, weapon <1-4>, fire [power], torpedo <energy>, detonate, repair "
+               "select <entity-id>, weapon <1-"
+            << weaponCount
+            << ">, fire [power], torpedo <energy>, detonate, repair "
                "<amount>, "
                "load <energy|material> <amount> <planet>, transfer <energy|material> <amount> "
                "<entity-id>, "
-               "ally <team 1-4> <team 1-4>, pause, resume, speed [0.1-10000], quit\n"
+               "ally <team 1-"
+            << teamCount << "> <team 1-" << teamCount
+            << ">, pause, resume, speed [0.1-10000], quit\n"
                "Select accepts an entity ID (select 2), ship-2, ship #2, or a practice target "
-               "alias T1-T4.\n"
+               "alias T<number>.\n"
                "It aims at a ship; fire hits only when it is in range and in front.\n"
                "turn rotates the nose only; accelerate thrusts along the nose up to the selected "
                "throttle speed, brake opposes velocity, cruise coasts. Throttle stages set the "
@@ -64,10 +71,10 @@ void ConsoleApp::printStatus(PlayerId playerId) const
             << ship->velocity.z << ")"
             << " | heading angles " << ship->orientation.yawDegrees << '/'
             << ship->orientation.pitchDegrees << " | engines " << toString(ship->acceleration)
-            << " | throttle " << static_cast<int>(ship->throttleLevel)
-            << " | speed " << ship->speed << " | energy " << ship->resources.energy << " | shields "
-            << ship->combat.shields << " | hull " << ship->combat.hull - ship->combat.hullDamage
-            << " | sim " << simulation_.world().elapsedSeconds << "s\n";
+            << " | throttle " << static_cast<int>(ship->throttleLevel) << " | speed " << ship->speed
+            << " | energy " << ship->resources.energy << " | shields " << ship->combat.shields
+            << " | hull " << ship->combat.hull - ship->combat.hullDamage << " | sim "
+            << simulation_.world().elapsedSeconds << "s\n";
     if (ship->orbitingPlanet && !ship->orbitTransferTargetLevel &&
         *ship->orbitingPlanet < simulation_.world().planets.size())
     {
@@ -88,8 +95,7 @@ void ConsoleApp::printStatus(PlayerId playerId) const
     {
         output_ << "Orbit transfer in progress: level "
                 << static_cast<int>(*ship->orbitTransferTargetLevel);
-        if (ship->orbitingPlanet &&
-            *ship->orbitingPlanet < simulation_.world().planets.size())
+        if (ship->orbitingPlanet && *ship->orbitingPlanet < simulation_.world().planets.size())
         {
             const auto& planet = simulation_.world().planets[*ship->orbitingPlanet];
             const auto level = *ship->orbitTransferTargetLevel;
@@ -107,10 +113,10 @@ void ConsoleApp::printTeams() const
 {
     const auto& world = simulation_.world();
     output_ << "Ships (select by ID, e.g. 'select 2'; practice targets are stationary):\n";
-    for (const auto& team : simulation_.world().teams)
+    for (const auto& team : world.teams)
     {
         output_ << static_cast<int>(team.id + 1) << ". " << team.name << " ("
-                << world.activePlayerCount(team.id) << '/' << kPlayersPerTeam << ")\n";
+                << world.activePlayerCount(team.id) << '/' << world.playersPerTeam << ")\n";
         for (const auto& slot : world.ships)
         {
             if (!slot || !slot->exists || slot->team != team.id)
@@ -193,7 +199,7 @@ WorldCommand ConsoleApp::toWorldCommand(const Command& command, PlayerId playerI
     case CommandKind::Detonate:
         return DetonateTorpedo{};
     case CommandKind::SetWeapon:
-        return SetWeaponProfile{static_cast<WeaponKind>(command.target)};
+        return SetWeaponProfile{command.target};
     case CommandKind::Repair:
         return RepairVessel{command.first};
     case CommandKind::Transfer:
@@ -338,16 +344,21 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
         break;
     case CommandKind::SetWeapon:
         if (!command.hasTarget)
-            output_ << "Usage: weapon <1-4>\n";
+            output_ << "Usage: weapon <1-" << simulation_.world().weapons.size() << ">\n";
+        else if (command.target >= simulation_.world().weapons.size())
+            output_ << "Weapon must be 1-" << simulation_.world().weapons.size() << ".\n";
         else
             execute(toWorldCommand(command, playerId));
         break;
     case CommandKind::Ally:
     {
-        if (!command.hasFirst || !command.hasSecond || command.first < 1 || command.first > 4 ||
-            command.second < 1 || command.second > 4)
+        if (!command.hasFirst || !command.hasSecond || std::floor(command.first) != command.first ||
+            std::floor(command.second) != command.second || command.first < 1 ||
+            command.first > simulation_.world().teams.size() || command.second < 1 ||
+            command.second > simulation_.world().teams.size())
         {
-            output_ << "Usage: ally <team 1-4> <team 1-4>\n";
+            output_ << "Usage: ally <team 1-" << simulation_.world().teams.size() << "> <team 1-"
+                    << simulation_.world().teams.size() << ">\n";
             break;
         }
         execute(SetAlliances{
@@ -409,13 +420,14 @@ void ConsoleApp::writeSnapshotFile() const
         output_ << "Could not write debug/world.json.\n";
         return;
     }
-    simulation_.writeSnapshot(snapshot);
+    console::writeSnapshot(simulation_.world(), snapshot);
     snapshot << '\n';
 }
 
 int ConsoleApp::run()
 {
-    output_ << "SPASIM — 3D space simulation, C++ port\nChoose team (1-4): ";
+    const auto teamCount = simulation_.world().teams.size();
+    output_ << "SPASIM — 3D space simulation, C++ port\nChoose team (1-" << teamCount << "): ";
     std::string line;
     if (!std::getline(input_, line))
         return 0;
@@ -428,7 +440,7 @@ int ConsoleApp::run()
     {
         teamNumber = 0;
     }
-    if (teamNumber < 1 || teamNumber > static_cast<int>(kTeamCount))
+    if (teamNumber < 1 || static_cast<std::size_t>(teamNumber) > teamCount)
     {
         output_ << "Invalid team.\n";
         return 1;
@@ -500,3 +512,5 @@ int ConsoleApp::run()
 }
 
 } // namespace spasim
+
+

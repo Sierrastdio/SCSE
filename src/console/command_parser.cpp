@@ -1,10 +1,11 @@
-#include "spasim/command.hpp"
+#include "console/command_parser.hpp"
 
 #include <cctype>
 #include <charconv>
 #include <cmath>
 #include <algorithm>
 #include <initializer_list>
+#include <limits>
 #include <sstream>
 #include <system_error>
 
@@ -177,7 +178,9 @@ Command parseCommand(std::string_view line)
     {
         double weapon{};
         result.hasTarget =
-            parse(first, weapon) && weapon >= 1.0 && weapon <= 4.0 && std::floor(weapon) == weapon;
+            parse(first, weapon) && weapon >= 1.0 &&
+            weapon <= static_cast<double>(std::numeric_limits<WeaponId>::max()) + 1.0 &&
+            std::floor(weapon) == weapon;
         if (result.hasTarget)
             result.target = static_cast<std::uint32_t>(weapon - 1.0);
     }
@@ -215,3 +218,5 @@ Command parseCommand(std::string_view line)
 }
 
 } // namespace spasim
+
+

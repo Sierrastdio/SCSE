@@ -1,6 +1,6 @@
 #pragma once
 
-#include "spasim/model.hpp"
+#include "engine/types.hpp"
 
 #include <optional>
 #include <string>
@@ -13,3 +13,5 @@ namespace spasim
 void removePlayer(World& world, PlayerId playerId);
 
 } // namespace spasim
+
+

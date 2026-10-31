@@ -1,4 +1,4 @@
-#include "spasim/simulation_detail.hpp"
+#include "engine/detail.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -68,12 +68,22 @@ CommandResult executeAction(World& world, Player&, Ship& ship, const LoadFromPla
 
 CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& action)
 {
-    if (action.first >= kTeamCount || action.second >= kTeamCount)
+    if (action.first >= world.teams.size() || action.second >= world.teams.size())
         return {CommandStatus::Invalid, "Team ID is out of range."};
 
-    world.teams[action.first].allied[action.second] = action.allied;
-    world.teams[action.second].allied[action.first] = action.allied;
+    auto setAlly = [&](Team& team, TeamId ally)
+    {
+        auto found = std::ranges::find(team.allies, ally);
+        if (action.allied && found == team.allies.end())
+            team.allies.push_back(ally);
+        else if (!action.allied && found != team.allies.end())
+            team.allies.erase(found);
+    };
+    setAlly(world.teams[action.first], action.second);
+    setAlly(world.teams[action.second], action.first);
     return {CommandStatus::Applied, "Alliance updated."};
 }
 
 } // namespace spasim::detail
+
+

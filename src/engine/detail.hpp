@@ -1,6 +1,6 @@
 #pragma once
 
-#include "spasim/simulation.hpp"
+#include "engine/engine.hpp"
 
 namespace spasim::detail
 {
@@ -17,8 +17,7 @@ namespace spasim::detail
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetHeading&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetAcceleration&);
 [[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetThrottleLevel&);
-[[nodiscard]] CommandResult
-executeAction(World&, Player&, Ship&, const SetGoal&, const GameRules&);
+[[nodiscard]] CommandResult executeAction(World&, Player&, Ship&, const SetGoal&, const GameRules&);
 [[nodiscard]] CommandResult
 executeAction(World&, Player&, Ship&, const SetOrbitLevel&, const GameRules&);
 [[nodiscard]] CommandResult
@@ -36,6 +35,6 @@ executeAction(World&, Player&, Ship&, const SelectTarget&, const GameRules&);
 
 void updateMovement(World& world, const GameRules& rules);
 void updateTorpedoes(World& world);
-void writeSnapshot(const World& world, std::ostream& output);
-
 } // namespace spasim::detail
+
+

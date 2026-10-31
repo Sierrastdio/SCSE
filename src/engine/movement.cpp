@@ -1,4 +1,4 @@
-#include "spasim/simulation_detail.hpp"
+#include "engine/detail.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -39,10 +39,10 @@ Vec3 gravityAt(const World& world, const Vec3& position)
         // Newtonian gravity outside the body; uniform-density falloff inside it.
         const double radius = std::max(planet.radius, 1.0);
         const double inverseDistance = 1.0 / std::sqrt(distanceSquared);
-        const double scale = distanceSquared < radius * radius
-                                 ? planet.gravitationalParameter / (radius * radius * radius)
-                                 : planet.gravitationalParameter * inverseDistance /
-                                       distanceSquared;
+        const double scale =
+            distanceSquared < radius * radius
+                ? planet.gravitationalParameter / (radius * radius * radius)
+                : planet.gravitationalParameter * inverseDistance / distanceSquared;
         acceleration += towardPlanet * scale;
     }
     return acceleration;
@@ -68,11 +68,8 @@ void resolvePlanetSurface(const World& world, Ship& ship)
     }
 }
 
-void turnTowardGoal(World& world,
-                    const Player* player,
-                    Ship& ship,
-                    double dt,
-                    const GameRules& rules);
+void turnTowardGoal(
+    World& world, const Player* player, Ship& ship, double dt, const GameRules& rules);
 
 bool integrateStableOrbit(
     World& world, Player* player, Ship& ship, double dt, const GameRules& rules)
@@ -147,8 +144,8 @@ bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const GameRules
         return false;
 
     const double requestedStep = rules.transferRadialStep(radius, targetRadius, dt);
-    const double radialStep = std::clamp(requestedStep, -std::abs(targetRadius - radius),
-                                         std::abs(targetRadius - radius));
+    const double radialStep = std::clamp(
+        requestedStep, -std::abs(targetRadius - radius), std::abs(targetRadius - radius));
     const double nextRadius = radius + radialStep;
     const double gravitationalParameter = std::max(planet.gravitationalParameter, 0.0);
     const double orbitalRate = std::sqrt(gravitationalParameter / (radius * radius * radius));
@@ -177,11 +174,8 @@ bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const GameRules
     return true;
 }
 
-void turnTowardGoal(World& world,
-                    const Player* player,
-                    Ship& ship,
-                    double dt,
-                    const GameRules& rules)
+void turnTowardGoal(
+    World& world, const Player* player, Ship& ship, double dt, const GameRules& rules)
 {
     if (player && player->goal)
     {
@@ -224,11 +218,8 @@ void turnTowardGoal(World& world,
         90.0);
 }
 
-void updateApproachThrottle(World& world,
-                            const Player* player,
-                            Ship& ship,
-                            double dt,
-                            const GameRules& rules)
+void updateApproachThrottle(
+    World& world, const Player* player, Ship& ship, double dt, const GameRules& rules)
 {
     if (!player || !player->goal || player->goal->kind != Target::Kind::Planet ||
         player->goal->id >= world.planets.size())
@@ -237,10 +228,8 @@ void updateApproachThrottle(World& world,
     const Planet& target = world.planets[player->goal->id];
     const double distanceToInfluence =
         std::max(0.0, ship.position.distanceTo(target.position) - target.sphereOfInfluenceRadius);
-    const double maximumSpeed =
-        rules.speedLimit(ship.throttleLevel,
-                         target.gravitationalParameter,
-                         target.sphereOfInfluenceRadius);
+    const double maximumSpeed = rules.speedLimit(
+        ship.throttleLevel, target.gravitationalParameter, target.sphereOfInfluenceRadius);
     const Vec3 towardTarget = target.position - ship.position;
     const double distance = towardTarget.length();
     const double closingSpeed =
@@ -379,16 +368,14 @@ void integrateShip(World& world, Player* player, Ship& ship, const GameRules& ru
     updateApproachThrottle(world, player, ship, dt, rules);
 
     const Vec3 previousPosition = ship.position;
-    double speedLimit = rules.speedLimit(ship.throttleLevel,
-                                         rules.referenceGravitationalParameter,
-                                         rules.sphereOfInfluenceRadius);
+    double speedLimit = rules.speedLimit(
+        ship.throttleLevel, rules.referenceGravitationalParameter, rules.sphereOfInfluenceRadius);
     if (player && player->goal && player->goal->kind == Target::Kind::Planet &&
         player->goal->id < world.planets.size())
     {
         const Planet& target = world.planets[player->goal->id];
-        speedLimit = rules.speedLimit(ship.throttleLevel,
-                                      target.gravitationalParameter,
-                                      target.sphereOfInfluenceRadius);
+        speedLimit = rules.speedLimit(
+            ship.throttleLevel, target.gravitationalParameter, target.sphereOfInfluenceRadius);
     }
     const double speedBeforeStep = ship.velocity.length();
     ship.velocity +=
@@ -406,7 +393,7 @@ void integrateShip(World& world, Player* player, Ship& ship, const GameRules& ru
     resolvePlanetSurface(world, ship);
 
     ship.speed = ship.velocity.length();
-    ship.warp = ship.speed; // Retained for the existing console and SPASIM-facing API.
+    ship.warp = ship.speed; // Kept for compatibility with existing state consumers.
     if (ship.acceleration != AccelerationMode::Cruise)
         ship.resources.energy = std::max(0.0, ship.resources.energy - dt);
 }
@@ -432,3 +419,5 @@ void updateMovement(World& world, const GameRules& rules)
 }
 
 } // namespace spasim::detail
+
+

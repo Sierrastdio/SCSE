@@ -1,4 +1,4 @@
-#include "spasim/world.hpp"
+#include "engine/world.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -166,24 +166,13 @@ World makeInitialWorld(std::optional<std::uint64_t> seed)
 {
     World world;
     world.randomSeedOverride = seed;
-
-    // Four inert practice ships provide immediate, visible targets for testing
-    // selection and weapons. They sit in a compact central range near every spawn.
-    for (std::size_t i = 0; i < kPracticeShipCount; ++i)
-    {
-        Ship target;
-        target.id = world.nextEntityId++;
-        target.owner = kNoPlayer;
-        target.playerControlled = false;
-        world.ships[i] = std::move(target);
-    }
     return world;
 }
 
 std::optional<PlayerId> joinTeam(World& world, TeamId team, std::string callSign)
 {
-    if (team >= kTeamCount || callSign.empty() || callSign.size() > 20 ||
-        world.activePlayerCount(team) >= kPlayersPerTeam)
+    if (team >= world.teams.size() || callSign.empty() || callSign.size() > 20 ||
+        world.activePlayerCount(team) >= world.playersPerTeam)
     {
         return std::nullopt;
     }
@@ -218,8 +207,8 @@ std::optional<PlayerId> joinTeam(World& world, TeamId team, std::string callSign
                            teamSettings.spawnRadius * z};
         }
         const double spawnRadius = spawnOffset.length();
-        Vec3 spawnDirection = spawnRadius > 1e-9 ? spawnOffset * (1.0 / spawnRadius)
-                                                  : Vec3{1.0, 0.0, 0.0};
+        Vec3 spawnDirection =
+            spawnRadius > 1e-9 ? spawnOffset * (1.0 / spawnRadius) : Vec3{1.0, 0.0, 0.0};
         const auto startOrbit = teamSettings.startingOrbitLevel;
         if (startOrbit > 0)
             spawnOffset = spawnDirection * world.planets[planetId].orbitLevelRadii[startOrbit - 1];
@@ -248,8 +237,8 @@ std::optional<PlayerId> joinTeam(World& world, TeamId team, std::string callSign
         {
             ship.orbitingPlanet = planetId;
             ship.orbitLevel = startOrbit;
-            const Vec3 axis = std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0}
-                                                               : Vec3{0.0, 1.0, 0.0};
+            const Vec3 axis =
+                std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0} : Vec3{0.0, 1.0, 0.0};
             Vec3 tangent{axis.y * spawnDirection.z - axis.z * spawnDirection.y,
                          axis.z * spawnDirection.x - axis.x * spawnDirection.z,
                          axis.x * spawnDirection.y - axis.y * spawnDirection.x};
@@ -304,3 +293,5 @@ void removePlayer(World& world, PlayerId playerId)
 }
 
 } // namespace spasim
+
+

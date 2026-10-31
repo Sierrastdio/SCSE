@@ -11,19 +11,13 @@
 namespace spasim
 {
 
-inline constexpr std::size_t kTeamCount = 4;
-inline constexpr std::size_t kPlayersPerTeam = 6;
-inline constexpr std::size_t kPlayerCapacity = kTeamCount * kPlayersPerTeam;
-// Leave entity storage room for static training targets as well as every player.
-inline constexpr std::size_t kPracticeShipCount = kTeamCount;
-inline constexpr std::size_t kEntityCapacity = kPlayerCapacity + kPracticeShipCount;
-inline constexpr std::size_t kWeaponCount = 4;
 inline constexpr std::size_t kMaxOrbitLevels = 8;
 
 using PlayerId = std::uint32_t;
 using EntityId = std::uint32_t;
 using PlanetId = std::uint8_t;
-using TeamId = std::uint8_t;
+using TeamId = std::uint32_t;
+using WeaponId = std::uint32_t;
 inline constexpr PlayerId kNoPlayer = UINT32_MAX;
 
 struct Vec3
@@ -54,13 +48,6 @@ enum class ObjectKind : std::uint8_t
     Ship,
     Base,
     Torpedo
-};
-enum class WeaponKind : std::uint8_t
-{
-    Slot0,
-    Slot1,
-    Slot2,
-    Slot3
 };
 enum class AccelerationMode : std::uint8_t
 {
@@ -183,7 +170,7 @@ struct Player
     std::uint8_t goalOrbitLevel{};
     double phasorPower{};
     double phasorDiameter{};
-    WeaponKind weapon{WeaponKind::Slot0};
+    WeaponId weapon{};
     std::optional<EntityId> selectedTarget;
     bool phasorEnabled{};
     bool joined{};
@@ -222,18 +209,18 @@ struct Team
     double spawnVerticalMaximum{};
     std::uint8_t startingOrbitLevel{};
     bool randomSpawn{};
-    std::array<bool, kTeamCount> allied{};
+    std::vector<TeamId> allies;
 };
 
 struct World
 {
-    std::array<Team, kTeamCount> teams{};
+    std::vector<Team> teams;
     std::vector<Planet> planets;
-    std::array<std::optional<Player>, kPlayerCapacity> playerSlots{};
-    // Fixed-capacity slot stores keep references stable and make iteration predictable.
-    std::array<std::optional<Ship>, kEntityCapacity> ships{};
-    std::array<std::optional<Base>, kEntityCapacity> bases{};
-    std::array<std::optional<Torpedo>, kEntityCapacity> torpedoes{};
+    std::vector<std::optional<Player>> playerSlots;
+    std::vector<std::optional<Ship>> ships;
+    std::vector<std::optional<Base>> bases;
+    std::vector<std::optional<Torpedo>> torpedoes;
+    std::size_t playersPerTeam{};
     std::uint64_t tick{};
     double elapsedSeconds{};
     double fixedStepSeconds{};
@@ -242,11 +229,11 @@ struct World
     EntityId nextEntityId{};
     EntityId entityIdStart{};
     PlayerId playerIdStart{};
-    WeaponKind defaultWeapon{};
+    WeaponId defaultWeapon{};
     bool friendlyFire{};
     bool paused{};
     double sessionDurationSeconds{};
-    std::array<WeaponProfile, kWeaponCount> weapons{};
+    std::vector<WeaponProfile> weapons;
     Player playerDefaults{};
     Ship playerShipDefaults{};
     Ship practiceShipDefaults{};
@@ -271,3 +258,5 @@ struct World
 [[nodiscard]] const char* toString(ShipClass value) noexcept;
 
 } // namespace spasim
+
+

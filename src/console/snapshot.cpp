@@ -1,10 +1,10 @@
-#include "spasim/simulation_detail.hpp"
+#include "console/snapshot.hpp"
 
 #include <iomanip>
 #include <ostream>
 #include <string_view>
 
-namespace spasim::detail
+namespace spasim::console
 {
 namespace
 {
@@ -14,13 +14,27 @@ void writeString(std::ostream& output, std::string_view value)
     for (const unsigned char character : value)
         switch (character)
         {
-        case '"': output << "\\\""; break;
-        case '\\': output << "\\\\"; break;
-        case '\b': output << "\\b"; break;
-        case '\f': output << "\\f"; break;
-        case '\n': output << "\\n"; break;
-        case '\r': output << "\\r"; break;
-        case '\t': output << "\\t"; break;
+        case '"':
+            output << "\\\"";
+            break;
+        case '\\':
+            output << "\\\\";
+            break;
+        case '\b':
+            output << "\\b";
+            break;
+        case '\f':
+            output << "\\f";
+            break;
+        case '\n':
+            output << "\\n";
+            break;
+        case '\r':
+            output << "\\r";
+            break;
+        case '\t':
+            output << "\\t";
+            break;
         default:
             if (character < 0x20)
                 output << "\\u00" << std::hex << std::setw(2) << std::setfill('0')
@@ -48,16 +62,14 @@ void writeSnapshot(const World& world, std::ostream& output)
         const auto& team = world.teams[index];
         output << "{\"id\":" << static_cast<int>(team.id) << ",\"name\":";
         writeString(output, team.name);
-        output << ",\"home_planet\":" << static_cast<int>(team.homePlanet)
-               << ",\"class\":";
+        output << ",\"home_planet\":" << static_cast<int>(team.homePlanet) << ",\"class\":";
         writeString(output, toString(team.shipClass));
         output << ",\"random_spawn\":" << (team.randomSpawn ? "true" : "false")
                << ",\"spawn_radius\":" << team.spawnRadius << ",\"spawn_offset\":";
         writeVector(output, team.spawnOffset);
         output << ",\"base_offset\":";
         writeVector(output, team.baseOffset);
-        output << ",\"starting_orbit_level\":"
-               << static_cast<int>(team.startingOrbitLevel) << '}';
+        output << ",\"starting_orbit_level\":" << static_cast<int>(team.startingOrbitLevel) << '}';
     }
     output << "],\"entities\":[";
 
@@ -93,7 +105,8 @@ void writeSnapshot(const World& world, std::ostream& output)
                << ",\"class\":\"" << toString(ship.shipClass)
                << "\",\"orbit_level\":" << static_cast<int>(ship.orbitLevel)
                << ",\"radius\":" << ship.collisionRadius << ",\"spawn_origin\":";
-        if (ship.team < world.teams.size() && world.teams[ship.team].homePlanet < world.planets.size())
+        if (ship.team < world.teams.size() &&
+            world.teams[ship.team].homePlanet < world.planets.size())
         {
             const auto& origin = world.planets[world.teams[ship.team].homePlanet].position;
             const auto offset = ship.position - origin;
@@ -158,10 +171,10 @@ void writeSnapshot(const World& world, std::ostream& output)
             output << planet.orbitLevelRadii[level];
         }
         output << "],\"mu\":" << planet.gravitationalParameter
-               << ",\"population\":" << planet.population << ",\"energy\":"
-               << planet.antiEntropy << ",\"material\":" << planet.rawMaterial
-               << ",\"standard_of_living\":" << planet.standardOfLiving << ",\"skill\":"
-               << planet.skill << ",\"controlling_team_id\":";
+               << ",\"population\":" << planet.population << ",\"energy\":" << planet.antiEntropy
+               << ",\"material\":" << planet.rawMaterial
+               << ",\"standard_of_living\":" << planet.standardOfLiving
+               << ",\"skill\":" << planet.skill << ",\"controlling_team_id\":";
         if (planet.controllingTeam)
             output << static_cast<int>(*planet.controllingTeam);
         else
@@ -171,4 +184,6 @@ void writeSnapshot(const World& world, std::ostream& output)
     output << "]}";
 }
 
-} // namespace spasim::detail
+} // namespace spasim::console
+
+

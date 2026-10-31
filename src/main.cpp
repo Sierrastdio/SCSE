@@ -1,6 +1,6 @@
-#include "spasim/console.hpp"
-#include "spasim/simulation.hpp"
-#include "spasim/world.hpp"
+#include "console/terminal.hpp"
+#include "engine/engine.hpp"
+#include "engine/world.hpp"
 
 #include <iostream>
 

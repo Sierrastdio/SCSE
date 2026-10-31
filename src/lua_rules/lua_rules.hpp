@@ -1,6 +1,6 @@
 #pragma once
 
-#include "spasim/model.hpp"
+#include "engine/types.hpp"
 
 #include <array>
 #include <filesystem>
@@ -44,12 +44,14 @@ class GameRules
     double torpedoCollisionRadius{};
     EntityId firstEntityId{1};
     PlayerId firstPlayerId{};
-    WeaponKind defaultWeapon{};
-    std::array<Team, kTeamCount> teams{};
+    WeaponId defaultWeapon{};
+    std::size_t playersPerTeam{};
+    std::vector<Team> teams;
     std::vector<Planet> planets;
-    std::array<WeaponProfile, kWeaponCount> weapons{};
-    std::array<std::string, kPracticeShipCount> practiceNames{};
-    std::array<Vec3, kPracticeShipCount> practicePositions{};
+    std::vector<WeaponProfile> weapons;
+    std::vector<std::string> practiceNames;
+    std::vector<Vec3> practicePositions;
+    std::vector<TeamId> practiceTeams;
 
     void applyScenario(World& world) const;
     [[nodiscard]] std::uint8_t maximumLevel(ShipClass shipClass) const noexcept;
@@ -74,3 +76,6 @@ class GameRules
 };
 
 } // namespace spasim
+
+
+

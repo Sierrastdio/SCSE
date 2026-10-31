@@ -1,4 +1,4 @@
-#include "spasim/simulation_detail.hpp"
+#include "engine/detail.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -14,8 +14,10 @@ void applyTorpedoBlast(World& world, const Torpedo& torpedo, double radius)
     for (auto& slot : world.ships)
     {
         if (!slot || !slot->exists || slot->combat.destroyed || slot->owner == torpedo.owner ||
-            (torpedo.team < kTeamCount && slot->team < kTeamCount &&
-             world.teams[torpedo.team].allied[slot->team] && !world.friendlyFire))
+            (torpedo.team < world.teams.size() && slot->team < world.teams.size() &&
+             std::ranges::find(world.teams[torpedo.team].allies, slot->team) !=
+                 world.teams[torpedo.team].allies.end() &&
+             !world.friendlyFire))
             continue;
 
         const double distance = slot->position.distanceTo(torpedo.position);
@@ -53,7 +55,9 @@ CommandResult executeAction(World& world, Player& player, Ship& ship, const Fire
     const auto targetTeam = teamOf(world, targetId);
     if (!targetTeam)
         return {CommandStatus::NotFound, "Selected target no longer exists."};
-    if (*targetTeam < kTeamCount && world.teams[player.team].allied[*targetTeam] &&
+    if (*targetTeam < world.teams.size() &&
+        std::ranges::find(world.teams[player.team].allies, *targetTeam) !=
+            world.teams[player.team].allies.end() &&
         !world.friendlyFire)
         return {CommandStatus::Invalid, "Cannot fire on an allied target."};
 
@@ -146,9 +150,9 @@ CommandResult executeAction(World& world, Player& player, Ship&, const DetonateT
     return {CommandStatus::Applied, "Torpedo detonated."};
 }
 
-CommandResult executeAction(World&, Player& player, Ship&, const SetWeaponProfile& action)
+CommandResult executeAction(World& world, Player& player, Ship&, const SetWeaponProfile& action)
 {
-    if (static_cast<std::size_t>(action.weapon) >= kWeaponCount)
+    if (action.weapon >= world.weapons.size())
         return {CommandStatus::Invalid, "Weapon profile is out of range."};
     player.weapon = action.weapon;
     return {CommandStatus::Applied, "Weapon selected."};
@@ -186,8 +190,10 @@ void updateTorpedoes(World& world)
         {
             if (!targetSlot || !targetSlot->exists || targetSlot->combat.destroyed ||
                 targetSlot->owner == slot->owner ||
-                (slot->team < kTeamCount && targetSlot->team < kTeamCount &&
-                 world.teams[slot->team].allied[targetSlot->team] && !world.friendlyFire))
+                (slot->team < world.teams.size() && targetSlot->team < world.teams.size() &&
+                 std::ranges::find(world.teams[slot->team].allies, targetSlot->team) !=
+                     world.teams[slot->team].allies.end() &&
+                 !world.friendlyFire))
                 continue;
             const Vec3 offset = slot->position - targetSlot->position;
             const double radius = slot->collisionRadius + targetSlot->collisionRadius;
@@ -207,3 +213,5 @@ void updateTorpedoes(World& world)
 }
 
 } // namespace spasim::detail
+
+
