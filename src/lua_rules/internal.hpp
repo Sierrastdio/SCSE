@@ -22,5 +22,3 @@ void requireDenseId(lua_State* state, int tableIndex, std::size_t expected);
 void readScenario(lua_State* state, int rulesReference, GameRules& rules);
 [[noreturn]] void throwLuaError(lua_State* state, const std::string& prefix);
 } // namespace spasim::lua_detail
-
-

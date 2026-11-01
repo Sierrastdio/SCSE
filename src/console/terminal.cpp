@@ -512,5 +512,3 @@ int ConsoleApp::run()
 }
 
 } // namespace spasim
-
-

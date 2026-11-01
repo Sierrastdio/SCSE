@@ -85,5 +85,3 @@ CommandResult executeAction(World& world, Player&, Ship&, const SetAlliances& ac
 }
 
 } // namespace spasim::detail
-
-

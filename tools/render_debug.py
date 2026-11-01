@@ -28,11 +28,17 @@ def find_snapshot() -> Path:
     if Path.cwd().name.startswith(("build", "cmake-build")):
         candidates.add(Path.cwd().parent / "debug" / "world.json")
     existing = [path for path in candidates if path.is_file()]
-    return max(existing, key=lambda path: path.stat().st_mtime) if existing else project / "debug" / "world.json"
+    return (
+        max(existing, key=lambda path: path.stat().st_mtime)
+        if existing
+        else project / "debug" / "world.json"
+    )
 
 
 class DebugViewer:
-    def __init__(self, path: Path | None, watch: bool, interval_ms: int, horizon: float) -> None:
+    def __init__(
+        self, path: Path | None, watch: bool, interval_ms: int, horizon: float
+    ) -> None:
         self.explicit_path = path
         self.path = path or find_snapshot()
         self.path = path
@@ -59,10 +65,18 @@ class DebugViewer:
         toolbar.pack(fill=tk.X)
         self.hud = ttk.Label(toolbar, text="Waiting for snapshot", anchor=tk.W)
         self.hud.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(toolbar, text="Orbit (1)", command=lambda: self.set_plane("iso")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="XY (2)", command=lambda: self.set_plane("xy")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="XZ (3)", command=lambda: self.set_plane("xz")).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="YZ (4)", command=lambda: self.set_plane("yz")).pack(side=tk.LEFT, padx=2)
+        ttk.Button(
+            toolbar, text="Orbit (1)", command=lambda: self.set_plane("iso")
+        ).pack(side=tk.LEFT, padx=2)
+        ttk.Button(toolbar, text="XY (2)", command=lambda: self.set_plane("xy")).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(toolbar, text="XZ (3)", command=lambda: self.set_plane("xz")).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(toolbar, text="YZ (4)", command=lambda: self.set_plane("yz")).pack(
+            side=tk.LEFT, padx=2
+        )
 
         self.canvas = tk.Canvas(self.root, bg="#10141a", highlightthickness=0)
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -80,9 +94,17 @@ class DebugViewer:
         self.root.bind("+", lambda _event: self.zoom_by(1.1))
         self.root.bind("-", lambda _event: self.zoom_by(1 / 1.1))
 
-        self.details = tk.Text(self.root, height=7, bg="#15191f", fg="#cbd5e1",
-                               insertbackground="#cbd5e1", relief=tk.FLAT, wrap=tk.NONE,
-                               font=("Consolas", 9), state=tk.DISABLED)
+        self.details = tk.Text(
+            self.root,
+            height=7,
+            bg="#15191f",
+            fg="#cbd5e1",
+            insertbackground="#cbd5e1",
+            relief=tk.FLAT,
+            wrap=tk.NONE,
+            font=("Consolas", 9),
+            state=tk.DISABLED,
+        )
         self.details.pack(fill=tk.X, padx=8, pady=(0, 6))
 
         self.refresh()
@@ -113,7 +135,9 @@ class DebugViewer:
             self.pan_y += delta_y
         else:
             self.camera_azimuth = (self.camera_azimuth + delta_x * 0.5) % 360.0
-            self.camera_elevation = min(89.0, max(-89.0, self.camera_elevation - delta_y * 0.5))
+            self.camera_elevation = min(
+                89.0, max(-89.0, self.camera_elevation - delta_y * 0.5)
+            )
         self.drag_origin = (event.x, event.y)
         self.redraw()
 
@@ -134,9 +158,11 @@ class DebugViewer:
                 trail = self.trails.setdefault(int(entity["id"]), [])
                 trail.append((entity["x"], entity["y"], entity["z"]))
                 del trail[:-180]
-            self.hud.configure(text=f"{self.path}   t={snapshot.get('time', 0):.1f}s   "
-                                     f"tick={snapshot.get('tick', 0)}   "
-                                     f"objects={len(snapshot.get('entities', []))}   projection={self.plane}")
+            self.hud.configure(
+                text=f"{self.path}   t={snapshot.get('time', 0):.1f}s   "
+                f"tick={snapshot.get('tick', 0)}   "
+                f"objects={len(snapshot.get('entities', []))}   projection={self.plane}"
+            )
             self.update_details(snapshot)
             self.redraw()
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as error:
@@ -150,23 +176,39 @@ class DebugViewer:
         planets = snapshot.get("planets", [])
         lines = ["Teams / spawn configuration:"]
         for team in teams:
-            active = next((entity for entity in entities
-                           if entity.get("kind") == "ship" and entity.get("team") == team.get("id")), None)
+            active = next(
+                (
+                    entity
+                    for entity in entities
+                    if entity.get("kind") == "ship"
+                    and entity.get("team") == team.get("id")
+                ),
+                None,
+            )
             position = "no ship"
             if active:
-                position = (f"ship #{active['id']} at ({active['x']:.1f}, {active['y']:.1f}, "
-                            f"{active['z']:.1f}); home offset {active.get('spawn_distance', 0):.1f}")
+                position = (
+                    f"ship #{active['id']} at ({active['x']:.1f}, {active['y']:.1f}, "
+                    f"{active['z']:.1f}); home offset {active.get('spawn_distance', 0):.1f}"
+                )
             offset = team.get("spawn_offset", [0, 0, 0])
-            lines.append(f"T{team.get('id', 0) + 1} {team.get('name', '?')}: home P{team.get('home_planet', 0) + 1}, "
-                         f"random={team.get('random_spawn', False)} r={team.get('spawn_radius', 0):g}, "
-                         f"offset=({offset[0]:g}, {offset[1]:g}, {offset[2]:g}); {position}")
+            lines.append(
+                f"T{team.get('id', 0) + 1} {team.get('name', '?')}: home P{team.get('home_planet', 0) + 1}, "
+                f"random={team.get('random_spawn', False)} r={team.get('spawn_radius', 0):g}, "
+                f"offset=({offset[0]:g}, {offset[1]:g}, {offset[2]:g}); {position}"
+            )
         lines.append(f"Planets: {len(planets)}")
         self.details.configure(state=tk.NORMAL)
         self.details.delete("1.0", tk.END)
         self.details.insert(tk.END, "\n".join(lines))
         self.details.configure(state=tk.DISABLED)
 
-    def project(self, point: tuple[float, float, float], center: tuple[float, float, float], scale: float) -> tuple[float, float]:
+    def project(
+        self,
+        point: tuple[float, float, float],
+        center: tuple[float, float, float],
+        scale: float,
+    ) -> tuple[float, float]:
         x, y, z = (point[index] - center[index] for index in range(3))
         if self.plane == "xy":
             return x * scale, -y * scale
@@ -177,8 +219,11 @@ class DebugViewer:
         azimuth = math.radians(self.camera_azimuth)
         elevation = math.radians(self.camera_elevation)
         right = (math.cos(azimuth), math.sin(azimuth), 0.0)
-        up = (-math.sin(azimuth) * math.sin(elevation),
-              math.cos(azimuth) * math.sin(elevation), math.cos(elevation))
+        up = (
+            -math.sin(azimuth) * math.sin(elevation),
+            math.cos(azimuth) * math.sin(elevation),
+            math.cos(elevation),
+        )
         screen_x = x * right[0] + y * right[1] + z * right[2]
         screen_y = -(x * up[0] + y * up[1] + z * up[2])
         return screen_x * scale, screen_y * scale
@@ -215,27 +260,66 @@ class DebugViewer:
                 sphere_ring = []
                 for index in range(49):
                     angle = 2.0 * math.pi * index / 48
-                    sphere_ring.extend(screen((point[0] + sphere_radius * math.cos(angle),
-                                               point[1] + sphere_radius * math.sin(angle), point[2])))
-                canvas.create_line(*sphere_ring, fill="#d4c94f", dash=(3, 4), smooth=True, width=1)
-            for level, orbit_radius in enumerate(planet.get("orbit_levels", []), start=1):
+                    sphere_ring.extend(
+                        screen(
+                            (
+                                point[0] + sphere_radius * math.cos(angle),
+                                point[1] + sphere_radius * math.sin(angle),
+                                point[2],
+                            )
+                        )
+                    )
+                canvas.create_line(
+                    *sphere_ring, fill="#d4c94f", dash=(3, 4), smooth=True, width=1
+                )
+            for level, orbit_radius in enumerate(
+                planet.get("orbit_levels", []), start=1
+            ):
                 if level > 1:
                     level_ring = []
                     for index in range(49):
                         angle = 2.0 * math.pi * index / 48
-                        level_ring.extend(screen((point[0] + orbit_radius * math.cos(angle),
-                                                  point[1] + orbit_radius * math.sin(angle), point[2])))
-                    canvas.create_line(*level_ring, fill="#68768a", dash=(2, 5), smooth=True, width=1)
-                canvas.create_text(*screen((point[0] + orbit_radius, point[1], point[2])),
-                                   text=f"L{level}", fill="#aebbd0", anchor=tk.W,
-                                   font=("Consolas", 8))
+                        level_ring.extend(
+                            screen(
+                                (
+                                    point[0] + orbit_radius * math.cos(angle),
+                                    point[1] + orbit_radius * math.sin(angle),
+                                    point[2],
+                                )
+                            )
+                        )
+                    canvas.create_line(
+                        *level_ring, fill="#68768a", dash=(2, 5), smooth=True, width=1
+                    )
+                canvas.create_text(
+                    *screen((point[0] + orbit_radius, point[1], point[2])),
+                    text=f"L{level}",
+                    fill="#aebbd0",
+                    anchor=tk.W,
+                    font=("Consolas", 8),
+                )
             sx, sy = screen(point)
-            canvas.create_oval(sx - 8, sy - 8, sx + 8, sy + 8, fill="#e8e36a", outline="white", width=1)
-            canvas.create_text(sx + 12, sy - 10, text=planet.get("name", "planet"), fill="#f4ef9a", anchor=tk.W)
+            canvas.create_oval(
+                sx - 8, sy - 8, sx + 8, sy + 8, fill="#e8e36a", outline="white", width=1
+            )
+            canvas.create_text(
+                sx + 12,
+                sy - 10,
+                text=planet.get("name", "planet"),
+                fill="#f4ef9a",
+                anchor=tk.W,
+            )
 
         # Mark team-configured spawn points and show team identities even without ships.
         for team in self.snapshot.get("teams", []):
-            home = next((planet for planet in planets if planet.get("id") == team.get("home_planet")), None)
+            home = next(
+                (
+                    planet
+                    for planet in planets
+                    if planet.get("id") == team.get("home_planet")
+                ),
+                None,
+            )
             if not home:
                 continue
             base = (home["x"], home["y"], home["z"])
@@ -245,14 +329,27 @@ class DebugViewer:
             color = TEAM_COLORS[int(team.get("id", 0)) % len(TEAM_COLORS)]
             if team.get("random_spawn"):
                 radius = float(team.get("spawn_radius", 0.0)) * scale
-                self.canvas.create_oval(sx - radius, sy - radius, sx + radius, sy + radius,
-                                        outline=color, width=1, dash=(3, 3))
+                self.canvas.create_oval(
+                    sx - radius,
+                    sy - radius,
+                    sx + radius,
+                    sy + radius,
+                    outline=color,
+                    width=1,
+                    dash=(3, 3),
+                )
             else:
-                self.canvas.create_oval(sx - 6, sy - 6, sx + 6, sy + 6,
-                                        outline=color, width=2, dash=(3, 2))
-            self.canvas.create_text(sx + 8, sy - 9,
-                                    text=f"{team.get('name', 'team')} spawn",
-                                    fill=color, anchor=tk.W, font=("Consolas", 8))
+                self.canvas.create_oval(
+                    sx - 6, sy - 6, sx + 6, sy + 6, outline=color, width=2, dash=(3, 2)
+                )
+            self.canvas.create_text(
+                sx + 8,
+                sy - 9,
+                text=f"{team.get('name', 'team')} spawn",
+                fill=color,
+                anchor=tk.W,
+                font=("Consolas", 8),
+            )
 
         for entity in entities:
             point = (entity["x"], entity["y"], entity["z"])
@@ -264,33 +361,64 @@ class DebugViewer:
                 self.draw_ship(entity, point, screen, color)
                 if all(key in entity for key in ("vx", "vy", "vz")):
                     velocity = (entity["vx"], entity["vy"], entity["vz"])
-                    speed = math.sqrt(sum(component * component for component in velocity))
+                    speed = math.sqrt(
+                        sum(component * component for component in velocity)
+                    )
                     if speed > 0.01:
                         arrow_length = min(max(speed * 8.0, 20.0), 100.0)
-                        velocity_point = tuple(point[axis] + velocity[axis] * arrow_length / speed
-                                               for axis in range(3))
+                        velocity_point = tuple(
+                            point[axis] + velocity[axis] * arrow_length / speed
+                            for axis in range(3)
+                        )
                         ex, ey = screen(velocity_point)
-                        canvas.create_line(sx, sy, ex, ey, fill="#f4d36a", arrow=tk.LAST, width=2)
+                        canvas.create_line(
+                            sx, sy, ex, ey, fill="#f4d36a", arrow=tk.LAST, width=2
+                        )
             elif kind == "base":
                 self.draw_square(sx, sy, 7, color)
             else:
-                canvas.create_oval(sx - 4, sy - 4, sx + 4, sy + 4, fill="#ffffff", outline=color, width=2)
+                canvas.create_oval(
+                    sx - 4,
+                    sy - 4,
+                    sx + 4,
+                    sy + 4,
+                    fill="#ffffff",
+                    outline=color,
+                    width=2,
+                )
                 if all(key in entity for key in ("vx", "vy", "vz")):
-                    velocity_point = (point[0] + entity["vx"] * 0.3,
-                                      point[1] + entity["vy"] * 0.3,
-                                      point[2] + entity["vz"] * 0.3)
+                    velocity_point = (
+                        point[0] + entity["vx"] * 0.3,
+                        point[1] + entity["vy"] * 0.3,
+                        point[2] + entity["vz"] * 0.3,
+                    )
                     ex, ey = screen(velocity_point)
-                    canvas.create_line(sx, sy, ex, ey, fill=color, arrow=tk.LAST, width=2)
-            ship_details = (f" {entity.get('class', '')} L{entity.get('orbit_level', 0)}"
-                            if kind == "ship" else "")
+                    canvas.create_line(
+                        sx, sy, ex, ey, fill=color, arrow=tk.LAST, width=2
+                    )
+            ship_details = (
+                f" {entity.get('class', '')} L{entity.get('orbit_level', 0)}"
+                if kind == "ship"
+                else ""
+            )
             label = entity.get("team_name", f"T{team + 1}")
-            canvas.create_text(sx + 10, sy + 10,
-                               text=f"{kind} #{entity.get('id')} {label}{ship_details}",
-                               fill=color, anchor=tk.NW, font=("Consolas", 9))
+            canvas.create_text(
+                sx + 10,
+                sy + 10,
+                text=f"{kind} #{entity.get('id')} {label}{ship_details}",
+                fill=color,
+                anchor=tk.NW,
+                font=("Consolas", 9),
+            )
 
-        canvas.create_text(14, height - 16, anchor=tk.SW,
-                           text="Right-drag orbit · Shift+right-drag pan · yellow=dashed gravity boundary · yellow arrow=velocity · 1-4 views",
-                           fill="#b4bdc9", font=("Consolas", 9))
+        canvas.create_text(
+            14,
+            height - 16,
+            anchor=tk.SW,
+            text="Right-drag orbit · Shift+right-drag pan · yellow=dashed gravity boundary · yellow arrow=velocity · 1-4 views",
+            fill="#b4bdc9",
+            font=("Consolas", 9),
+        )
 
     def draw_axes(self, screen, center, scale: float, width: int, height: int) -> None:
         canvas = self.canvas
@@ -298,44 +426,87 @@ class DebugViewer:
         start = (0.0, 0.0, 0.0)
         sx, sy = screen(start)
         canvas.create_oval(sx - 3, sy - 3, sx + 3, sy + 3, fill="#ffffff", outline="")
-        for axis, vector, color in (("X", (axis_length, 0, 0), "#ff6868"),
-                                    ("Y", (0, axis_length, 0), "#70df91"),
-                                    ("Z", (0, 0, axis_length), "#6eaaff")):
+        for axis, vector, color in (
+            ("X", (axis_length, 0, 0), "#ff6868"),
+            ("Y", (0, axis_length, 0), "#70df91"),
+            ("Z", (0, 0, axis_length), "#6eaaff"),
+        ):
             ex, ey = screen(vector)
             canvas.create_line(sx, sy, ex, ey, fill=color, arrow=tk.LAST, width=2)
-            canvas.create_text(ex + 5, ey - 5, text=axis, fill=color, anchor=tk.SW,
-                               font=("Consolas", 10, "bold"))
+            canvas.create_text(
+                ex + 5,
+                ey - 5,
+                text=axis,
+                fill=color,
+                anchor=tk.SW,
+                font=("Consolas", 10, "bold"),
+            )
 
         if self.plane == "xy":
-            grid_axes = ((axis_length * value, axis_length * -value, 0) for value in (-1, -0.5, 0.5, 1))
+            grid_axes = (
+                (axis_length * value, axis_length * -value, 0)
+                for value in (-1, -0.5, 0.5, 1)
+            )
         elif self.plane == "xz":
-            grid_axes = ((axis_length * value, 0, axis_length * -value) for value in (-1, -0.5, 0.5, 1))
+            grid_axes = (
+                (axis_length * value, 0, axis_length * -value)
+                for value in (-1, -0.5, 0.5, 1)
+            )
         elif self.plane == "yz":
-            grid_axes = ((0, axis_length * value, axis_length * -value) for value in (-1, -0.5, 0.5, 1))
+            grid_axes = (
+                (0, axis_length * value, axis_length * -value)
+                for value in (-1, -0.5, 0.5, 1)
+            )
         else:
-            grid_axes = ((axis_length * value, -axis_length * value, 0) for value in (-1, -0.5, 0.5, 1))
+            grid_axes = (
+                (axis_length * value, -axis_length * value, 0)
+                for value in (-1, -0.5, 0.5, 1)
+            )
         for point in grid_axes:
             ex, ey = screen(point)
             canvas.create_line(sx, sy, ex, ey, fill="#39414c", dash=(2, 5), width=1)
 
     def draw_square(self, x: float, y: float, half: float, color: str) -> None:
-        self.canvas.create_rectangle(x - half, y - half, x + half, y + half,
-                                     fill=color, outline="white", width=1)
+        self.canvas.create_rectangle(
+            x - half, y - half, x + half, y + half, fill=color, outline="white", width=1
+        )
 
-    def draw_ship(self, entity: dict, point: tuple[float, float, float], screen, color: str) -> None:
+    def draw_ship(
+        self, entity: dict, point: tuple[float, float, float], screen, color: str
+    ) -> None:
         sx, sy = screen(point)
-        self.canvas.create_polygon(sx, sy - 8, sx - 6, sy + 6, sx + 6, sy + 6,
-                                  fill=color, outline="white", width=1)
+        self.canvas.create_polygon(
+            sx,
+            sy - 8,
+            sx - 6,
+            sy + 6,
+            sx + 6,
+            sy + 6,
+            fill=color,
+            outline="white",
+            width=1,
+        )
         yaw = math.radians(entity.get("yaw", 0.0))
         pitch = math.radians(entity.get("pitch", 0.0))
         speed = max(float(entity.get("speed", 0.0)), 1.0)
         distance = min(max(speed * self.horizon, 80.0), 600.0)
-        future = (point[0] + math.cos(pitch) * math.cos(yaw) * distance,
-                  point[1] + math.cos(pitch) * math.sin(yaw) * distance,
-                  point[2] + math.sin(pitch) * distance)
+        future = (
+            point[0] + math.cos(pitch) * math.cos(yaw) * distance,
+            point[1] + math.cos(pitch) * math.sin(yaw) * distance,
+            point[2] + math.sin(pitch) * distance,
+        )
         ex, ey = screen(future)
-        self.canvas.create_line(sx, sy, ex, ey, fill=color, arrow=tk.LAST,
-                                arrowshape=(10, 12, 4), width=2, dash=(5, 3))
+        self.canvas.create_line(
+            sx,
+            sy,
+            ex,
+            ey,
+            fill=color,
+            arrow=tk.LAST,
+            arrowshape=(10, 12, 4),
+            width=2,
+            dash=(5, 3),
+        )
         trail = self.trails.get(int(entity["id"]), [])
         if len(trail) > 1:
             coords = []
@@ -349,11 +520,26 @@ class DebugViewer:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("snapshot", nargs="?", type=Path,
-                        help="snapshot JSON path (auto-detects debug/world.json if omitted)")
-    parser.add_argument("--watch", action="store_true", help="reload snapshots while the game is running")
-    parser.add_argument("--interval", type=int, default=200, help="refresh interval in milliseconds")
-    parser.add_argument("--horizon", type=float, default=10.0, help="seconds represented by each direction line")
+    parser.add_argument(
+        "snapshot",
+        nargs="?",
+        type=Path,
+        help="snapshot JSON path (auto-detects debug/world.json if omitted)",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="reload snapshots while the game is running",
+    )
+    parser.add_argument(
+        "--interval", type=int, default=200, help="refresh interval in milliseconds"
+    )
+    parser.add_argument(
+        "--horizon",
+        type=float,
+        default=10.0,
+        help="seconds represented by each direction line",
+    )
     args = parser.parse_args()
     if args.interval < 50:
         parser.error("--interval must be at least 50 ms")

@@ -282,6 +282,3 @@ GameRules::transferRadialStep(double currentRadius, double targetRadius, double 
 }
 
 } // namespace spasim
-
-
-

@@ -41,5 +41,3 @@ class ConsoleApp
 };
 
 } // namespace spasim
-
-

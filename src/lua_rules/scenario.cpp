@@ -278,6 +278,3 @@ void readScenario(lua_State* state, int rulesReference, GameRules& rules)
     lua_pop(state, 3);
 }
 } // namespace spasim::lua_detail
-
-
-

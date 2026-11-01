@@ -69,5 +69,3 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand& command
 }
 
 } // namespace spasim
-
-

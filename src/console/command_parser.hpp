@@ -56,5 +56,3 @@ struct Command
 [[nodiscard]] Command parseCommand(std::string_view line);
 
 } // namespace spasim
-
-

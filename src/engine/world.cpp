@@ -293,5 +293,3 @@ void removePlayer(World& world, PlayerId playerId)
 }
 
 } // namespace spasim
-
-

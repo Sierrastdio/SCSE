@@ -124,10 +124,15 @@ bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const GameRules
         return false;
 
     const Planet& planet = world.planets[*ship.orbitingPlanet];
+
     const std::uint8_t targetLevel = *ship.orbitTransferTargetLevel;
+
     const double targetRadius = planet.orbitLevelRadii[targetLevel - 1];
+
     const Vec3 relativePosition = ship.position - planet.position;
+
     const double radius = relativePosition.length();
+
     if (radius <= 1e-9 || dt <= 0.0)
         return false;
 
@@ -144,13 +149,20 @@ bool integrateOrbitTransfer(World& world, Ship& ship, double dt, const GameRules
         return false;
 
     const double requestedStep = rules.transferRadialStep(radius, targetRadius, dt);
+
     const double radialStep = std::clamp(
         requestedStep, -std::abs(targetRadius - radius), std::abs(targetRadius - radius));
+
     const double nextRadius = radius + radialStep;
+
     const double gravitationalParameter = std::max(planet.gravitationalParameter, 0.0);
+
     const double orbitalRate = std::sqrt(gravitationalParameter / (radius * radius * radius));
+
     const double angle = orbitalRate * dt;
+
     const Vec3 nextRadial = radial * std::cos(angle) + tangent * std::sin(angle);
+
     const Vec3 nextTangent = tangent * std::cos(angle) - radial * std::sin(angle);
 
     ship.position = planet.position + nextRadial * nextRadius;
@@ -419,5 +431,3 @@ void updateMovement(World& world, const GameRules& rules)
 }
 
 } // namespace spasim::detail
-
-

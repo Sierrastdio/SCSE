@@ -258,5 +258,3 @@ struct World
 [[nodiscard]] const char* toString(ShipClass value) noexcept;
 
 } // namespace spasim
-
-

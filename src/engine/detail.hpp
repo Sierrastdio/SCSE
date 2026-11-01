@@ -36,5 +36,3 @@ executeAction(World&, Player&, Ship&, const SelectTarget&, const GameRules&);
 void updateMovement(World& world, const GameRules& rules);
 void updateTorpedoes(World& world);
 } // namespace spasim::detail
-
-

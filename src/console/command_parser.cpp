@@ -109,6 +109,7 @@ Command parseCommand(std::string_view line)
     input >> third;
     input >> fourth;
     result.text = first;
+
     auto parse = [](const std::string& text, double& value)
     {
         if (text.empty())
@@ -116,6 +117,7 @@ Command parseCommand(std::string_view line)
         const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
         return error == std::errc{} && end == text.data() + text.size();
     };
+
     if (result.kind == CommandKind::Turn)
     {
         result.hasFirst = parse(first, result.first);
@@ -218,5 +220,3 @@ Command parseCommand(std::string_view line)
 }
 
 } // namespace spasim
-
-

@@ -13,5 +13,3 @@ namespace spasim
 void removePlayer(World& world, PlayerId playerId);
 
 } // namespace spasim
-
-

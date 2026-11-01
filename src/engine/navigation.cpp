@@ -165,17 +165,8 @@ CommandResult executeAction(
     const Vec3 direction =
         rules.weaponAimDirection(relativePosition, targetVelocity, projectileSpeed);
     player.selectedTarget = action.target.id;
-    player.goal.reset();
-    if (ship.orbitTransferTargetLevel)
-    {
-        ship.orbitTransferTargetLevel.reset();
-        ship.orbitingPlanet.reset();
-        ship.orbitLevel = 0;
-    }
     ship.desiredOrientation = orientationToward(direction);
     return {CommandStatus::Applied, "Target selected; ship is aiming at it."};
 }
 
 } // namespace spasim::detail
-
-

@@ -115,12 +115,21 @@ CommandResult executeAction(World& world, Player& player, Ship& ship, const Fire
     if (torpedoSlot->exists)
         return {CommandStatus::Invalid, "Your torpedo is already active."};
 
-    const double aimLength = action.aim.length();
+    Vec3 aim = action.aim;
+    if (player.selectedTarget)
+    {
+        const Vec3* targetPosition =
+            positionOf(world, Target{Target::Kind::Entity, *player.selectedTarget});
+        if (targetPosition)
+            aim = *targetPosition - ship.position;
+    }
+
+    const double aimLength = aim.length();
     if (!std::isfinite(aimLength) || aimLength <= 1e-9)
         return {CommandStatus::Invalid, "Torpedo aim vector must be finite and non-zero."};
 
     ship.resources.energy -= action.energy;
-    const Vec3 aim = action.aim * (1.0 / aimLength);
+    aim = aim * (1.0 / aimLength);
     Torpedo torpedo;
     torpedo.id = player.torpedoId;
     torpedo.owner = player.id;
@@ -213,5 +222,3 @@ void updateTorpedoes(World& world)
 }
 
 } // namespace spasim::detail
-
-

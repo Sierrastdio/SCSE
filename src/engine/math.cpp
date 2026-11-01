@@ -57,5 +57,3 @@ Vec3* positionOf(World& world, Target target)
 }
 
 } // namespace spasim::detail
-
-
