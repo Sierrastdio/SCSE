@@ -58,11 +58,11 @@ Command parseCommand(std::string_view line)
         result.kind = CommandKind::Tick;
     else if (name == "turn")
         result.kind = CommandKind::Turn;
-    else if (name == "accelerate" || name == "accel")
+    else if (name == "accel")
         result.kind = CommandKind::Accelerate;
-    else if (name == "brake" || name == "decel")
+    else if (name == "decel")
         result.kind = CommandKind::Brake;
-    else if (name == "cruise" || name == "coast")
+    else if (name == "coast")
         result.kind = CommandKind::Cruise;
     else if (name == "throttle")
         result.kind = CommandKind::SetThrottleLevel;
@@ -72,11 +72,11 @@ Command parseCommand(std::string_view line)
         result.kind = CommandKind::SetOrbitLevel;
     else if (name == "class")
         result.kind = CommandKind::SetShipClass;
-    else if (name == "select" || name == "target")
+    else if (name == "target")
         result.kind = CommandKind::Select;
-    else if (name == "fire" || name == "shoot")
+    else if (name == "shoot")
         result.kind = CommandKind::Fire;
-    else if (name == "torpedo" || name == "launch")
+    else if (name == "launch")
         result.kind = CommandKind::FireTorpedo;
     else if (name == "detonate")
         result.kind = CommandKind::Detonate;
@@ -98,7 +98,7 @@ Command parseCommand(std::string_view line)
         result.kind = CommandKind::Speed;
     else if (name == "snapshot")
         result.kind = CommandKind::Snapshot;
-    else if (name == "quit" || name == "exit")
+    else if (name == "exit")
         result.kind = CommandKind::Quit;
     std::string first;
     std::string second;

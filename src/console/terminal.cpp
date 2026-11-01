@@ -25,23 +25,43 @@ void ConsoleApp::printHelp() const
 {
     const auto teamCount = simulation_.world().teams.size();
     const auto weaponCount = simulation_.world().weapons.size();
-    output_ << "Commands: status, teams, planets, turn <x> <y> <z>, accelerate, brake, cruise, "
-               "throttle <1-4>, \n"
-               "goal <planet> [orbit-level], orbit <level>, class <small|medium|large>, "
-               "select <entity-id>, weapon <1-"
+    output_ << "Commands:\n"
+               "  help (?)                 show this help\n"
+               "  status (s)               show ship status\n"
+               "  teams                    list teams and entities\n"
+               "  planets                  list planets\n"
+               "  tick (wait)              advance one simulation step\n"
+               "  turn <x> <y> <z>         set facing direction\n"
+               "  accel                    thrust forward\n"
+               "  decel                    brake\n"
+               "  coast                    coast\n"
+               "  throttle <1-4>           set speed tier\n"
+               "  goal <planet> [level]    fly to a planet and orbit\n"
+               "  orbit <level>            change orbit level\n"
+               "  class <small|medium|large>  set ship class\n"
+               "  target <entity-id>       aim at an entity\n"
+               "  weapon <1-"
             << weaponCount
-            << ">, fire [power], torpedo <energy>, detonate, repair "
-               "<amount>, "
-               "load <energy|material> <amount> <planet>, transfer <energy|material> <amount> "
-               "<entity-id>, "
-               "ally <team 1-"
+            << ">             select weapon profile\n"
+               "  shoot [power]            fire phasor\n"
+               "  launch <energy>          fire torpedo\n"
+               "  detonate                 detonate torpedo\n"
+               "  repair <amount>          repair ship\n"
+               "  load <energy|material> <amount> <planet>\n"
+               "  transfer <energy|material> <amount> <entity-id>\n"
+               "  ally <team 1-"
             << teamCount << "> <team 1-" << teamCount
-            << ">, pause, resume, speed [0.1-10000], quit\n"
-               "Select accepts an entity ID (select 2), ship-2, ship #2, or a practice target "
+            << ">\n"
+               "  snapshot [off]           write debug snapshots\n"
+               "  pause / resume           pause or resume simulation\n"
+               "  speed [0.1-10000]        set playback speed\n"
+               "  exit                     quit\n"
+               "Aliases: ? = help, s = status.\n"
+               "Target accepts an entity ID (target 2), ship-2, ship #2, or a practice target "
                "alias T<number>.\n"
-               "It aims at a ship; fire hits only when it is in range and in front.\n"
-               "turn rotates the nose only; accelerate thrusts along the nose up to the selected "
-               "throttle speed, brake opposes velocity, cruise coasts. Throttle stages set the "
+               "It aims at a ship; shoot hits only when it is in range and in front.\n"
+               "turn rotates the nose only; accel thrusts along the nose up to the selected "
+               "throttle speed, decel opposes velocity, coast coasts. Throttle stages set the "
                "speed cap relative to the L1 orbit speed.\n"
                "goal <planet> [level] flies to the planet and enters that orbit; orbit <level> "
                "changes level while orbiting. Higher levels are closer to the planet.\n"
@@ -50,8 +70,8 @@ void ConsoleApp::printHelp() const
                "shows engine mode.\n"
                "goal autopilot brakes by stopping distance and follows the selected throttle cap.\n"
                "The simulation advances automatically in real time. speed <multiplier> changes "
-               "playback (0.1-10000x) while physics keeps its fixed timestep. Prefix a command "
-               "with tick to advance once.\n";
+               "playback (0.1-10000x) while physics keeps its fixed timestep. Use tick to "
+               "advance once.\n";
 }
 
 void ConsoleApp::printStatus(PlayerId playerId) const
@@ -220,7 +240,8 @@ void ConsoleApp::inputWorker()
     std::string line;
     while (std::getline(input_, line))
     {
-        const bool shouldQuit = line == "quit" || line == "exit";
+        const auto parsed = parseCommand(line);
+        const bool shouldQuit = parsed.kind == CommandKind::Quit;
         {
             std::scoped_lock lock(inputMutex_);
             inputQueue_.push(std::move(line));
@@ -309,7 +330,7 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command& command)
         }
         if (command.kind == CommandKind::Select && !command.hasTarget)
         {
-            output_ << "Usage: select <entity-id> (e.g. select 2, select ship-2, or select T2; see "
+            output_ << "Usage: target <entity-id> (e.g. target 2, target ship-2, or target T2; see "
                        "teams)\n";
             break;
         }
