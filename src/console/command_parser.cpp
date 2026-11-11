@@ -21,82 +21,105 @@ std::string lower(std::string value)
 
 bool parseEntityIdToken(std::string token, std::uint32_t &id)
 {
-  token = lower(std::move(token));
-  if (token.starts_with("ship-"))
+  token = lower(std::move(token)); // 입력을 소문자화
+
+  if (token.starts_with("ship-")) // ship-로 시작하면 앞의 5글자를 제거. 예: ship-42 → 42
     token.erase(0, 5);
-  else if (token.starts_with('t') && token.size() > 1)
+  else if (token.starts_with('t') && token.size() > 1) // t로 시작하고 뒤에 글자가 더 있으면 맨 앞의 t를 제거. 예: t42 → 42
     token.erase(0, 1);
-  if (token.starts_with('#'))
+
+  if (token.starts_with('#')) // 남은 문자열이 #로 시작하면 그 문자도 제거. 예: ship-#42 → 42
     token.erase(0, 1);
-  if (token.empty())
+  if (token.empty()) // 접두사를 제거한 뒤 아무것도 남지 않았다면 ID로 읽을 수 없으므로 실패를 반환.
     return false;
+
   const auto [end, error] = std::from_chars(token.data(), token.data() + token.size(), id);
+  // token.data(): 문자열의 첫 문자 위치
+  // token.data() + token.size(): 문자열 끝 위치
+  // id: 숫자로 변환한 결과를 저장할 변수
+  /*
+   * 예를 들어 token이 "123abc"라면 123까지만 숫자로 읽고, end는 a를 가리킵니다. 그래서 뒤의 검사에서 end가 문자열 끝과 같은지 확인해
+   * "123abc" 전체가 숫자가 아니라는 걸 판단합니다. 반대로 "123"이면 오류가 없고 end가 문자열 끝에 도달해 변환이 성공합니다.
+   */
+
   return error == std::errc{} && end == token.data() + token.size();
+  // error == std::errc{}: 변환 중 오류가 없었는지 확인합니다.
+  // end == token.data() + token.size(): 숫자를 읽은 위치가 문자열 끝인지 확인합니다.
 }
 } // namespace
 
 Command parseCommand(std::string_view line)
 {
+  /*
+   * std::string처럼 문자를 직접 소유하는 객체가 아니라, 이미 있는 문자열의 일부를 읽기 전용으로 가리키는 가벼운 참조.
+   * 다만 string_view는 원본 문자열을 소유하지 않으므로, 원본이 사라지면 view도 유효하지 않게 됩니다. 이 함수에서는 뒤에서
+   * std::string(line)으로 복사본을 만들기 때문에, 그 복사본을 istringstream으로 읽는 구조입니다.
+   */
   std::istringstream input{std::string(line)};
-  std::string name;
-  input >> name;
-  name = lower(std::move(name));
+  // std::string(line)은, line의 내용을 std::string으로 만듭니다.
+  // std::istringstream은, 그 문자열을 입력 스트림처럼 읽게 해 줍니다.
 
+  std::string commandName;
+  input >> commandName;
+  commandName = lower(std::move(commandName));
+
+  // 명령어를 종류별로 구분합니다.
   Command result;
-  if (name == "help" || name == "?")
+  if (commandName == "help" || commandName == "?")
     result.kind = CommandKind::Help;
-  else if (name == "status" || name == "s")
+  else if (commandName == "status" || commandName == "s")
     result.kind = CommandKind::Status;
-  else if (name == "teams")
+  else if (commandName == "teams")
     result.kind = CommandKind::Teams;
-  else if (name == "planets")
+  else if (commandName == "planets")
     result.kind = CommandKind::Planets;
-  else if (name == "tick" || name == "wait")
+  else if (commandName == "tick" || commandName == "wait")
     result.kind = CommandKind::Tick;
-  else if (name == "turn")
+  else if (commandName == "turn")
     result.kind = CommandKind::Turn;
-  else if (name == "accel")
+  else if (commandName == "accel")
     result.kind = CommandKind::Accelerate;
-  else if (name == "decel")
+  else if (commandName == "decel")
     result.kind = CommandKind::Brake;
-  else if (name == "coast")
+  else if (commandName == "coast")
     result.kind = CommandKind::Cruise;
-  else if (name == "throttle")
+  else if (commandName == "throttle")
     result.kind = CommandKind::SetThrottleLevel;
-  else if (name == "goal")
+  else if (commandName == "goal")
     result.kind = CommandKind::SetGoal;
-  else if (name == "orbit")
+  else if (commandName == "orbit")
     result.kind = CommandKind::SetOrbitLevel;
-  else if (name == "class")
+  else if (commandName == "class")
     result.kind = CommandKind::SetShipClass;
-  else if (name == "target")
+  else if (commandName == "target")
     result.kind = CommandKind::Select;
-  else if (name == "shoot")
+  else if (commandName == "shoot")
     result.kind = CommandKind::Fire;
-  else if (name == "launch")
+  else if (commandName == "launch")
     result.kind = CommandKind::FireTorpedo;
-  else if (name == "detonate")
+  else if (commandName == "detonate")
     result.kind = CommandKind::Detonate;
-  else if (name == "weapon")
+  else if (commandName == "weapon")
     result.kind = CommandKind::SetWeapon;
-  else if (name == "repair")
+  else if (commandName == "repair")
     result.kind = CommandKind::Repair;
-  else if (name == "transfer")
+  else if (commandName == "transfer")
     result.kind = CommandKind::Transfer;
-  else if (name == "load")
+  else if (commandName == "load")
     result.kind = CommandKind::Load;
-  else if (name == "ally")
+  else if (commandName == "ally")
     result.kind = CommandKind::Ally;
-  else if (name == "pause")
+  else if (commandName == "pause")
     result.kind = CommandKind::Pause;
-  else if (name == "resume")
+  else if (commandName == "resume")
     result.kind = CommandKind::Resume;
-  else if (name == "speed")
+  else if (commandName == "speed")
     result.kind = CommandKind::Speed;
-  else if (name == "snapshot")
+  else if (commandName == "snapshot")
     result.kind = CommandKind::Snapshot;
-  else if (name == "exit")
+  else if (commandName == "exit")
     result.kind = CommandKind::Quit;
+
   std::string first;
   std::string second;
   std::string third;
@@ -105,7 +128,12 @@ Command parseCommand(std::string_view line)
   input >> second;
   input >> third;
   input >> fourth;
+
   result.text = first;
+  /* NOTE:
+   * 첫 번째 인자를 result의 text 멤버에 저장합니다. 그다음 코드에서 CommandKind에 따라 first, second 등의 값을 숫자로 변환하거나,
+   * 엔티티 ID로 해석해요. 즉, 이 부분은 우선 인자를 문자열로 받아 두는 단계입니다.
+   */
 
   auto parse = [](const std::string &text, double &value) {
     if (text.empty())
