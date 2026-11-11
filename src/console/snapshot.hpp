@@ -7,6 +7,6 @@
 namespace spasim::console
 {
 
-void writeSnapshot(const World& world, std::ostream& output);
+void writeSnapshot(const World &world, std::ostream &output);
 
 } // namespace spasim::console
