@@ -42,14 +42,18 @@ enum class CommandKind : std::uint8_t
 struct Command
 {
   CommandKind kind{CommandKind::Unknown};
+
   double first{};
   double second{};
   double thirdValue{};
+
   std::uint32_t target{};
   std::string text;
+
   bool hasFirst{};
   bool hasSecond{};
   bool hasThird{};
+
   bool hasTarget{};
 };
 

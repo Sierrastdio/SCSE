@@ -135,46 +135,64 @@ Command parseCommand(std::string_view line)
    * 엔티티 ID로 해석해요. 즉, 이 부분은 우선 인자를 문자열로 받아 두는 단계입니다.
    */
 
-  auto parse = [](const std::string &text, double &value) {
+  auto tryParseDouble = [](const std::string &text, double &value) {
     if (text.empty())
       return false;
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
     return error == std::errc{} && end == text.data() + text.size();
   };
 
+  // 대체로 인자를 숫자로 제대로 파싱했는지를 나타냅니다.
+  // 일부 선택 인자(SetGoal의 hasSecond)는 입력이 있었는지를 표시합니다.
+  // OPTIMIZE:
+  // bool 대신 비트 마스크 쓸수 있을듯. 선언을 구조체(struct)로 해서 의도대로 메모리가 안줄을수도 있음.
   if (result.kind == CommandKind::Turn)
   {
-    result.hasFirst = parse(first, result.first);
-    result.hasSecond = parse(second, result.second);
-    result.hasThird = parse(third, result.thirdValue);
+    result.hasFirst = tryParseDouble(first, result.first);
+    result.hasSecond = tryParseDouble(second, result.second);
+    result.hasThird = tryParseDouble(third, result.thirdValue);
   }
   else if (result.kind == CommandKind::Ally)
   {
-    result.hasFirst = parse(first, result.first);
-    result.hasSecond = parse(second, result.second);
+    result.hasFirst = tryParseDouble(first, result.first);
+    result.hasSecond = tryParseDouble(second, result.second);
   }
   else if (result.kind == CommandKind::SetGoal)
   {
     double target{};
-    result.hasTarget = parse(first, target) && target >= 1.0 && target <= 256.0 && std::floor(target) == target;
-    if (result.hasTarget)
+    result.hasTarget = tryParseDouble(first, target) &&
+                        target >= 1.0 &&
+                        target <= 256.0 &&
+                        std::floor(target) == target;
+
+    if (result.hasTarget == true)
       result.target = static_cast<std::uint32_t>(target - 1.0);
+    // result.hasTarget이 유효하면 입력값에서 1을 빼서 저장하는데,
+    // 사용자 입력은 1부터 시작하고 내부 인덱스는 0부터 시작하기 때문이에요. 유효하지 않으면 저장하지 않음.
+    // TODO: 그냥 사용자 입력토 타켓 0부터 시작하는것도 이후에 고려해볼만함.
+    // 사용자가 고르는 숫자랑 실제프로그램이 처리하는 숫자랑 다른건 상당히 골치아픔.
+
+    // 이부분은 두번째 인자를 숫자로 변환합니다.
     if (!second.empty())
     {
       result.hasSecond = true;
-      parse(second, result.second);
+      tryParseDouble(second, result.second);
     }
   }
   else if (result.kind == CommandKind::SetOrbitLevel)
   {
     double level{};
-    result.hasTarget = parse(first, level) && level >= 1.0 && level <= kMaxOrbitLevels && std::floor(level) == level;
+    result.hasTarget = tryParseDouble(first, level) &&
+                        level >= 1.0 &&
+                        level <= kMaxOrbitLevels &&
+                        std::floor(level) == level;
+
     if (result.hasTarget)
       result.target = static_cast<std::uint32_t>(level);
   }
   else if (result.kind == CommandKind::Fire)
   {
-    result.hasFirst = parse(first, result.first);
+    result.hasFirst = tryParseDouble(first, result.first);
     if (!result.hasFirst && first.empty())
     {
       result.first = 1.0;
@@ -183,7 +201,7 @@ Command parseCommand(std::string_view line)
   }
   else if (result.kind == CommandKind::FireTorpedo || result.kind == CommandKind::Repair)
   {
-    result.hasFirst = parse(first, result.first);
+    result.hasFirst = tryParseDouble(first, result.first);
   }
   else if (result.kind == CommandKind::Select)
   {
@@ -201,15 +219,17 @@ Command parseCommand(std::string_view line)
   else if (result.kind == CommandKind::SetWeapon)
   {
     double weapon{};
-    result.hasTarget = parse(first, weapon) && weapon >= 1.0 &&
-                       weapon <= static_cast<double>(std::numeric_limits<WeaponId>::max()) + 1.0 && std::floor(weapon) == weapon;
+    result.hasTarget = tryParseDouble(first, weapon) && weapon >= 1.0 &&
+                       weapon <= static_cast<double>(std::numeric_limits<WeaponId>::max()) + 1.0 &&
+                       std::floor(weapon) == weapon;
+
     if (result.hasTarget)
       result.target = static_cast<std::uint32_t>(weapon - 1.0);
   }
   else if (result.kind == CommandKind::Transfer || result.kind == CommandKind::Load)
   {
     result.text = first;
-    result.hasFirst = parse(second, result.first);
+    result.hasFirst = tryParseDouble(second, result.first);
     try
     {
       result.target = static_cast<std::uint32_t>(std::stoul(third));
@@ -226,12 +246,16 @@ Command parseCommand(std::string_view line)
   }
   else if (result.kind == CommandKind::Speed)
   {
-    result.hasFirst = parse(first, result.first);
+    result.hasFirst = tryParseDouble(first, result.first);
   }
   else if (result.kind == CommandKind::SetThrottleLevel)
   {
     double level{};
-    result.hasTarget = parse(first, level) && level >= 1.0 && level <= 4.0 && std::floor(level) == level;
+    result.hasTarget = tryParseDouble(first, level) &&
+                        level >= 1.0 &&
+                        level <= 4.0 &&
+                        std::floor(level) == level;
+
     if (result.hasTarget)
       result.target = static_cast<std::uint32_t>(level);
   }
