@@ -6,7 +6,7 @@ local rules = {
     -- the SPASIM roster without changing the simulation code.
     scenario = {
         ids = {first_entity = 1, first_player = 0, default_weapon = 0},
-        players_per_team = 6,
+        players_per_team = 7,
         -- Runtime and entity templates are copied into the world at startup.
         world = {
             random_seed = 0x53504153494D,
@@ -36,22 +36,26 @@ local rules = {
         -- Random spawns use a sphere around the home planet; fixed spawns use spawn_offset.
         -- Orbit level 0 starts in free flight. Positive levels start in circular orbit.
         teams = {
-            {id = 0, name = "Aggstroms", home_planet_id = 0, ship_class = "small",
+            {id = 0, name = "team1", home_planet_id = 0, ship_class = "small",
              starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
              spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
              spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {0}},
-            {id = 1, name = "Fouriers", home_planet_id = 1, ship_class = "small",
+            {id = 1, name = "team2", home_planet_id = 1, ship_class = "small",
              starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
              spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
              spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {1}},
-            {id = 2, name = "Diffractions", home_planet_id = 2, ship_class = "small",
+            {id = 2, name = "team3", home_planet_id = 2, ship_class = "small",
              starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
              spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
              spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {2}},
-            {id = 3, name = "Lasers", home_planet_id = 3, ship_class = "small",
+            {id = 3, name = "team4", home_planet_id = 3, ship_class = "small",
              starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
              spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
              spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {3}},
+            {id = 4, name = "team5", home_planet_id = 4, ship_class = "small",
+             starting_orbit_level = 0, random_spawn = true, spawn_radius = 70,
+             spawn_offset = {0, 0, 0}, base_offset = {0, 0, 0},
+             spawn_vertical_minimum = -1, spawn_vertical_maximum = 1, allied = {4}},
         },
         planets = {
             {id = 0, name = "Planet 1", position = {-1000, 0, 0}, radius = 30,
@@ -74,29 +78,35 @@ local rules = {
              gravity = 2000, parking_altitude = 90, population = 100, energy = 100,
              material = 100, standard_of_living = 0.3, skill = 0.3,
              controlling_team_id = -1, revolt_at_seconds = 0},
+            {id = 4, name = "Planet 5", position = {0, 1000, 500}, radius = 50,
+             sphere_of_influence_radius =500,
+             gravity = 20000, parking_altitude = 90, population = 100, energy = 100,
+             material = 100, standard_of_living = 0.3, skill = 0.3,
+             controlling_team_id = -1, revolt_at_seconds = 0},
         },
         weapons = {
-            {id = 0, name = "Aggstroms", energy_cost = 10, damage = 12, range = 2000,
-             projectile_speed = 0, explosive = false, splash_radius = 0},
-            {id = 1, name = "Fouriers", energy_cost = 20, damage = 20, range = 2500,
-             projectile_speed = 0, explosive = false, splash_radius = 0},
-            {id = 2, name = "Diffractions", energy_cost = 30, damage = 28, range = 3000,
-             projectile_speed = 0, explosive = false, splash_radius = 0},
-            {id = 3, name = "Lasers", energy_cost = 15, damage = 16, range = 3500,
-             projectile_speed = 0, explosive = false, splash_radius = 0},
+            {id = 0, name = "MG", energy_cost = 10, damage = 10, range = 800,
+             projectile_speed = 10, explosive = false, splash_radius = 0},
+            {id = 1, name = "C1", energy_cost = 20, damage = 50, range = 2500,
+             projectile_speed = 100, explosive = false, splash_radius = 0},
+            {id = 2, name = "C2", energy_cost = 30, damage = 125, range = 3000,
+             projectile_speed = 500, explosive = false, splash_radius = 0},
+            {id = 3, name = "B1", energy_cost = 15, damage = 40, range = 400,
+             projectile_speed = 5, explosive = false, splash_radius = 0},
         },
         practice_ships = {
             {team_id = 0, name = "Practice target Aggstroms", position = {100, 0, 0}},
             {team_id = 1, name = "Practice target Fouriers", position = {0, 100, 0}},
             {team_id = 2, name = "Practice target Diffractions", position = {-100, 0, 0}},
-            {team_id = 3, name = "Practice target Lasers", position = {0, -100, 0}},
+            {team_id = 3, name = "Practice target Lasers", position = { 0, -100, 0 }},
+            {team_id = 4, name = "Practice target Lasers", position = {0, -100, 100}},
         },
     },
 
     orbit = {
         sphere_of_influence_radius = 500.0,
-        level_count = 4,
-        radius_fractions = {1.0, 2.0 / 3.0, 1.0 / 3.0, 0.0},
+        level_count = 5,
+        radius_fractions = {1.0, 0.75, 0.5, 0.25, 0.0},
 
         -- Maximum radial speed and acceleration of the scripted spiral policy.
         transfer_max_radial_speed = 25.0,
@@ -104,9 +114,9 @@ local rules = {
     },
 
     ship_classes = {
-        small = {max_orbit_level = 4},
-        medium = {max_orbit_level = 2},
-        large = {max_orbit_level = 1},
+        small = {max_orbit_level = 5},
+        medium = {max_orbit_level = 4},
+        large = {max_orbit_level = 3},
     },
 
     -- Speed caps are multiples of the L1 circular speed at the reference
@@ -114,7 +124,7 @@ local rules = {
     -- sqrt(1000 / 500) ~= 1.41 world-units/second.
     flight = {
         reference_gravitational_parameter = 1000.0,
-        thrust_acceleration = 1.0,
+        thrust_acceleration = 1.5,
         braking_acceleration = 1.0,
         maximum_aim_lead_seconds = 60.0,
         throttle_speed_multipliers = {0.5, 1.0, 1.5, 2.5},
