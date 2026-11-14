@@ -90,15 +90,23 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const LoadFromPl
 CommandResult executeAction(World &world, Player &, Ship &, const SetAlliances &action)
 {
   if (action.first >= world.teams.size() || action.second >= world.teams.size())
+  {
     return {CommandStatus::Invalid, "Team ID is out of range."};
+  }
 
   auto setAlly = [&](Team &team, TeamId ally) {
     auto found = std::ranges::find(team.allies, ally);
+
     if (action.allied && found == team.allies.end())
+    {
       team.allies.push_back(ally);
+    }
     else if (!action.allied && found != team.allies.end())
+    {
       team.allies.erase(found);
+    }
   };
+
   setAlly(world.teams[action.first], action.second);
   setAlly(world.teams[action.second], action.first);
   return {CommandStatus::Applied, "Alliance updated."};
