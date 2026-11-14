@@ -92,7 +92,9 @@ Command parseCommand(std::string_view line)
   else if (commandName == "class")
     result.kind = CommandKind::SetShipClass;
   else if (commandName == "target")
-    result.kind = CommandKind::Select;
+    result.kind = CommandKind::Target;
+  else if (commandName == "select")
+    result.kind = CommandKind::SelectShips;
   else if (commandName == "shoot")
     result.kind = CommandKind::Fire;
   else if (commandName == "launch")
@@ -203,7 +205,7 @@ Command parseCommand(std::string_view line)
   {
     result.hasFirst = tryParseDouble(first, result.first);
   }
-  else if (result.kind == CommandKind::Select)
+  else if (result.kind == CommandKind::Target)
   {
     for (const auto &token : {first, second, third, fourth})
     {
@@ -215,6 +217,22 @@ Command parseCommand(std::string_view line)
         break;
       }
     }
+  }
+  else if (result.kind == CommandKind::SelectShips)
+  {
+    auto addShipId = [&](const std::string &token) {
+      EntityId id{};
+      if (parseEntityIdToken(token, id))
+        result.shipIds.push_back(id);
+      else
+        result.hasInvalidShipId = true;
+    };
+    for (const auto &token : {first, second, third, fourth})
+      if (!token.empty())
+        addShipId(token);
+    std::string token;
+    while (input >> token)
+      addShipId(token);
   }
   else if (result.kind == CommandKind::SetWeapon)
   {

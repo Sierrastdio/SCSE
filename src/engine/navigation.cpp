@@ -11,7 +11,10 @@ CommandResult executeAction(World &, Player &player, Ship &ship, const SetHeadin
       action.direction.length() <= 1e-9)
     return {CommandStatus::Invalid, "Direction vector must be finite and non-zero."};
 
-  player.goal.reset();
+  ship.goalPlanet.reset();
+  if (player.shipId == ship.id)
+    player.goal.reset();
+  ship.selectedTarget.reset();
   if (ship.orbitTransferTargetLevel)
   {
     ship.orbitTransferTargetLevel.reset();
@@ -73,9 +76,14 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetG
   // current orbital state and transfer from its present radius and velocity.
   if (ship.orbitingPlanet && *ship.orbitingPlanet == action.target.id)
   {
-    player.goal.reset();
-    player.goalOrbitLevel = action.orbitLevel;
-    player.selectedTarget.reset();
+    ship.goalPlanet.reset();
+    ship.goalOrbitLevel = action.orbitLevel;
+    if (player.shipId == ship.id)
+    {
+      player.goal.reset();
+      player.goalOrbitLevel = action.orbitLevel;
+    }
+    ship.selectedTarget.reset();
     if (ship.orbitLevel == action.orbitLevel && !ship.orbitTransferTargetLevel)
       return {CommandStatus::Applied, "Ship is already at that orbit level."};
 
@@ -85,9 +93,14 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetG
       CommandStatus::Applied, "Orbit autopilot engaged for level " + std::to_string(action.orbitLevel) + " from the current orbit."};
   }
 
-  player.goal = action.target;
-  player.goalOrbitLevel = action.orbitLevel;
-  player.selectedTarget.reset();
+  ship.goalPlanet = static_cast<PlanetId>(action.target.id);
+  ship.goalOrbitLevel = action.orbitLevel;
+  if (player.shipId == ship.id)
+  {
+    player.goal = action.target;
+    player.goalOrbitLevel = action.orbitLevel;
+  }
+  ship.selectedTarget.reset();
   ship.orbitingPlanet.reset();
   ship.orbitLevel = 0;
   ship.orbitTransferTargetLevel.reset();
@@ -145,9 +158,12 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Sele
   const auto weaponIndex = static_cast<std::size_t>(player.weapon);
   const double projectileSpeed = weaponIndex < world.weapons.size() ? world.weapons[weaponIndex].projectileSpeed : 0.0;
   const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity, projectileSpeed);
-  player.selectedTarget = action.target.id;
-  ship.desiredOrientation = orientationToward(direction);
-  return {CommandStatus::Applied, "Target selected; ship is aiming at it."};
+  const bool navigationActive = ship.goalPlanet.has_value() || ship.orbitTransferTargetLevel.has_value();
+  ship.selectedTarget = action.target.id;
+  if (!navigationActive)
+    ship.desiredOrientation = orientationToward(direction);
+  return {CommandStatus::Applied,
+    navigationActive ? "Target selected; navigation autopilot retains heading control." : "Target selected; ship is aiming at it."};
 }
 
 } // namespace spasim::detail

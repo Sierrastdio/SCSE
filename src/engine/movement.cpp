@@ -98,7 +98,7 @@ bool integrateStableOrbit(World &world, Player *player, Ship &ship, double dt, c
   ship.speed = orbitSpeed;
   ship.warp = orbitSpeed;
   ship.acceleration = AccelerationMode::Cruise;
-  if (player && player->selectedTarget)
+  if (player && ship.selectedTarget)
     turnTowardGoal(world, player, ship, dt, rules);
   else
   {
@@ -177,27 +177,24 @@ bool integrateOrbitTransfer(World &world, Ship &ship, double dt, const GameRules
 
 void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, const GameRules &rules)
 {
-  if (player && player->goal)
+  if (ship.goalPlanet && *ship.goalPlanet < world.planets.size())
   {
-    if (const auto *destination = positionOf(world, *player->goal))
-    {
-      const Vec3 direction = *destination - ship.position;
-      if (direction.length() > 1e-9)
-        ship.desiredOrientation = orientationToward(direction);
-    }
+    const Vec3 direction = world.planets[*ship.goalPlanet].position - ship.position;
+    if (direction.length() > 1e-9)
+      ship.desiredOrientation = orientationToward(direction);
   }
-  else if (player && player->selectedTarget)
+  else if (player && ship.selectedTarget)
   {
-    const Target target{Target::Kind::Entity, *player->selectedTarget};
+    const Target target{Target::Kind::Entity, *ship.selectedTarget};
     if (const Vec3 *targetPosition = positionOf(world, target))
     {
       const Vec3 relativePosition = *targetPosition - ship.position;
       if (relativePosition.length() <= 1e-9)
         return;
       Vec3 targetVelocity{};
-      if (const auto *targetShip = world.findShip(*player->selectedTarget))
+      if (const auto *targetShip = world.findShip(*ship.selectedTarget))
         targetVelocity = targetShip->velocity;
-      else if (const auto *targetTorpedo = world.findTorpedo(*player->selectedTarget))
+      else if (const auto *targetTorpedo = world.findTorpedo(*ship.selectedTarget))
         targetVelocity = targetTorpedo->velocity;
       const auto weaponIndex = static_cast<std::size_t>(player->weapon);
       const Vec3 aimDirection = rules.weaponAimDirection(relativePosition, targetVelocity,
@@ -212,12 +209,12 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
     std::clamp(approachAngle(ship.orientation.pitchDegrees, ship.desiredOrientation.pitchDegrees, maxTurn), -90.0, 90.0);
 }
 
-void updateApproachThrottle(World &world, const Player *player, Ship &ship, double dt, const GameRules &rules)
+void updateApproachThrottle(World &world, Ship &ship, double dt, const GameRules &rules)
 {
-  if (!player || !player->goal || player->goal->kind != Target::Kind::Planet || player->goal->id >= world.planets.size())
+  if (!ship.goalPlanet || *ship.goalPlanet >= world.planets.size())
     return;
 
-  const Planet &target = world.planets[player->goal->id];
+  const Planet &target = world.planets[*ship.goalPlanet];
   const double distanceToInfluence = std::max(0.0, ship.position.distanceTo(target.position) - target.sphereOfInfluenceRadius);
   const double maximumSpeed = rules.speedLimit(ship.throttleLevel, target.gravitationalParameter, target.sphereOfInfluenceRadius);
   const Vec3 towardTarget = target.position - ship.position;
@@ -252,10 +249,10 @@ Vec3 commandedThrust(const Ship &ship, const GameRules &rules, double maximumSpe
 
 bool captureGoalOrbit(World &world, Player *player, Ship &ship, const Vec3 &startPosition)
 {
-  if (!player || !player->goal || player->goal->kind != Target::Kind::Planet || player->goal->id >= world.planets.size())
+  if (!ship.goalPlanet || *ship.goalPlanet >= world.planets.size())
     return false;
 
-  const auto &planet = world.planets[player->goal->id];
+  const auto &planet = world.planets[*ship.goalPlanet];
   const double orbitRadius = planet.sphereOfInfluenceRadius;
   const Vec3 startOffset = startPosition - planet.position;
   const double startDistanceSquared = dot(startOffset, startOffset);
@@ -286,7 +283,7 @@ bool captureGoalOrbit(World &world, Player *player, Ship &ship, const Vec3 &star
     // is a swept collision/capture event, not a reset to an orbit radius.
     ship.position = startPosition + segment * entryFraction;
   }
-  const auto requestedLevel = player->goalOrbitLevel;
+  const auto requestedLevel = ship.goalOrbitLevel;
   // Capture starts from the actual crossing position and velocity. Do not
   // reset the ship to level 1; the Lua transfer policy handles the remaining
   // radial distance to the requested level from here.
@@ -294,8 +291,12 @@ bool captureGoalOrbit(World &world, Player *player, Ship &ship, const Vec3 &star
   ship.orbitLevel = 0;
   ship.orbitTransferTargetLevel = requestedLevel;
   ship.acceleration = AccelerationMode::Cruise;
-  player->goal.reset();
-  player->goalOrbitLevel = requestedLevel;
+  ship.goalPlanet.reset();
+  if (player && player->shipId == ship.id)
+  {
+    player->goal.reset();
+    player->goalOrbitLevel = requestedLevel;
+  }
   return true;
 }
 
@@ -349,13 +350,13 @@ void integrateShip(World &world, Player *player, Ship &ship, const GameRules &ru
   }
 
   turnTowardGoal(world, player, ship, dt, rules);
-  updateApproachThrottle(world, player, ship, dt, rules);
+  updateApproachThrottle(world, ship, dt, rules);
 
   const Vec3 previousPosition = ship.position;
   double speedLimit = rules.speedLimit(ship.throttleLevel, rules.referenceGravitationalParameter, rules.sphereOfInfluenceRadius);
-  if (player && player->goal && player->goal->kind == Target::Kind::Planet && player->goal->id < world.planets.size())
+  if (ship.goalPlanet && *ship.goalPlanet < world.planets.size())
   {
-    const Planet &target = world.planets[player->goal->id];
+    const Planet &target = world.planets[*ship.goalPlanet];
     speedLimit = rules.speedLimit(ship.throttleLevel, target.gravitationalParameter, target.sphereOfInfluenceRadius);
   }
   const double speedBeforeStep = ship.velocity.length();

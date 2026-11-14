@@ -3,6 +3,7 @@
 #include "engine/types.hpp"
 
 #include <string_view>
+#include <vector>
 
 namespace spasim
 {
@@ -22,7 +23,8 @@ enum class CommandKind : std::uint8_t
   SetGoal,
   SetOrbitLevel,
   SetShipClass,
-  Select,
+  Target,
+  SelectShips,
   Fire,
   FireTorpedo,
   Detonate,
@@ -49,12 +51,14 @@ struct Command
 
   std::uint32_t target{};
   std::string text;
+  std::vector<EntityId> shipIds;
 
   bool hasFirst{};
   bool hasSecond{};
   bool hasThird{};
 
   bool hasTarget{};
+  bool hasInvalidShipId{};
 };
 
 [[nodiscard]] Command parseCommand(std::string_view line);

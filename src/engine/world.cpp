@@ -9,20 +9,11 @@
 namespace spasim
 {
 
-double Vec3::lengthSquared() const noexcept
-{
-  return x * x + y * y + z * z;
-}
+double Vec3::lengthSquared() const noexcept { return x * x + y * y + z * z; }
 
-double Vec3::length() const noexcept
-{
-  return std::sqrt(lengthSquared());
-}
+double Vec3::length() const noexcept { return std::sqrt(lengthSquared()); }
 
-double Vec3::distanceTo(const Vec3 &other) const noexcept
-{
-  return (*this - other).length();
-}
+double Vec3::distanceTo(const Vec3 &other) const noexcept { return (*this - other).length(); }
 
 Vec3 &Vec3::operator+=(const Vec3 &other) noexcept
 {
@@ -40,15 +31,9 @@ Vec3 &Vec3::operator-=(const Vec3 &other) noexcept
   return *this;
 }
 
-Vec3 operator+(Vec3 lhs, const Vec3 &rhs) noexcept
-{
-  return lhs += rhs;
-}
+Vec3 operator+(Vec3 lhs, const Vec3 &rhs) noexcept { return lhs += rhs; }
 
-Vec3 operator-(Vec3 lhs, const Vec3 &rhs) noexcept
-{
-  return lhs -= rhs;
-}
+Vec3 operator-(Vec3 lhs, const Vec3 &rhs) noexcept { return lhs -= rhs; }
 
 Vec3 operator*(Vec3 value, double scalar) noexcept
 {
@@ -154,18 +139,25 @@ World makeInitialWorld(std::optional<std::uint64_t> seed)
 
 std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign)
 {
-  if (team >= world.teams.size() || callSign.empty() || callSign.size() > 20 || world.activePlayerCount(team) >= world.playersPerTeam)
+  if (team >= world.teams.size() || callSign.empty() || callSign.size() > 20 ||
+      world.activePlayerCount(team) >= world.playersPerTeam || world.shipsPerPlayer == 0)
   {
     return std::nullopt;
   }
 
   const auto playerSlot = std::ranges::find_if(world.playerSlots, [](const auto &slot) { return !slot; });
-  const auto shipSlot = std::ranges::find_if(world.ships, [](const auto &slot) { return !slot; });
   const auto baseSlot = std::ranges::find_if(world.bases, [](const auto &slot) { return !slot; });
-  const auto torpedoSlot = std::ranges::find_if(world.torpedoes, [](const auto &slot) { return !slot; });
+  std::vector<std::optional<Ship> *> shipSlots;
+  std::vector<std::optional<Torpedo> *> torpedoSlots;
+  for (auto &slot : world.ships)
+    if (!slot && shipSlots.size() < world.shipsPerPlayer)
+      shipSlots.push_back(&slot);
+  for (auto &slot : world.torpedoes)
+    if (!slot && torpedoSlots.size() < world.shipsPerPlayer)
+      torpedoSlots.push_back(&slot);
 
-  if (playerSlot == world.playerSlots.end() || shipSlot == world.ships.end() || baseSlot == world.bases.end() ||
-      torpedoSlot == world.torpedoes.end())
+  if (playerSlot == world.playerSlots.end() || shipSlots.size() != world.shipsPerPlayer ||
+      torpedoSlots.size() != world.shipsPerPlayer || baseSlot == world.bases.end())
     return std::nullopt;
 
   const auto playerIndex = static_cast<std::size_t>(playerSlot - world.playerSlots.begin());
@@ -210,36 +202,59 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     player.weapon = world.defaultWeapon;
     player.shipId = world.nextEntityId++;
     player.baseId = world.nextEntityId++;
-    player.torpedoId = world.nextEntityId++;
+    std::vector<EntityId> shipIds{player.shipId};
+    std::vector<EntityId> torpedoIds{world.nextEntityId++};
+    for (std::size_t index = 1; index < world.shipsPerPlayer; ++index)
+    {
+      shipIds.push_back(world.nextEntityId++);
+      torpedoIds.push_back(world.nextEntityId++);
+    }
+    player.selectedShips = shipIds;
     player.selectedObject = player.shipId;
 
-    Ship ship = world.playerShipDefaults;
-    ship.id = player.shipId;
-    ship.owner = id;
-    ship.team = team;
-    ship.name = player.callSign;
-    ship.shipClass = teamSettings.shipClass;
-    ship.playerControlled = true;
-    ship.position = spawn;
+    const Vec3 axis = std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0} : Vec3{0.0, 1.0, 0.0};
+    Vec3 tangent{axis.y * spawnDirection.z - axis.z * spawnDirection.y, axis.z * spawnDirection.x - axis.x * spawnDirection.z,
+      axis.x * spawnDirection.y - axis.y * spawnDirection.x};
+    tangent = tangent * (1.0 / tangent.length());
+    const double orbitRadius = startOrbit > 0 ? world.planets[planetId].orbitLevelRadii[startOrbit - 1] : 0.0;
+    const double orbitSpeed = startOrbit > 0 ? std::sqrt(world.planets[planetId].gravitationalParameter / orbitRadius) : 0.0;
 
-    if (startOrbit > 0)
+    for (std::size_t index = 0; index < shipIds.size(); ++index)
     {
-      ship.orbitingPlanet = planetId;
-      ship.orbitLevel = startOrbit;
+      Ship ship = world.playerShipDefaults;
+      ship.id = shipIds[index];
+      ship.owner = id;
+      ship.team = team;
+      ship.name = index == 0 ? player.callSign : player.callSign + " " + std::to_string(index + 1);
+      ship.shipClass = teamSettings.shipClass;
+      ship.torpedoId = torpedoIds[index];
+      ship.playerControlled = true;
 
-      const Vec3 axis = std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0} : Vec3{0.0, 1.0, 0.0};
+      if (startOrbit > 0)
+      {
+        const double angle = static_cast<double>(index) * 50.0 / orbitRadius;
+        const Vec3 radial = spawnDirection * std::cos(angle) + tangent * std::sin(angle);
+        ship.position = world.planets[planetId].position + radial * orbitRadius;
+        ship.orbitingPlanet = planetId;
+        ship.orbitLevel = startOrbit;
 
-      Vec3 tangent{axis.y * spawnDirection.z - axis.z * spawnDirection.y, axis.z * spawnDirection.x - axis.x * spawnDirection.z,
-        axis.x * spawnDirection.y - axis.y * spawnDirection.x};
+        Vec3 shipTangent{
+          axis.y * radial.z - axis.z * radial.y, axis.z * radial.x - axis.x * radial.z, axis.x * radial.y - axis.y * radial.x};
+        shipTangent = shipTangent * (1.0 / shipTangent.length());
+        ship.velocity = shipTangent * orbitSpeed;
+        ship.speed = ship.warp = orbitSpeed;
+      }
+      else
+        ship.position = spawn + tangent * (50.0 * static_cast<double>(index));
 
-      tangent = tangent * (1.0 / tangent.length());
-
-      const double orbitRadius = world.planets[planetId].orbitLevelRadii[startOrbit - 1];
-
-      const double orbitSpeed = std::sqrt(world.planets[planetId].gravitationalParameter / orbitRadius);
-
-      ship.velocity = tangent * orbitSpeed;
-      ship.speed = ship.warp = orbitSpeed;
+      Torpedo torpedo;
+      torpedo.id = ship.torpedoId;
+      torpedo.owner = id;
+      torpedo.team = team;
+      torpedo.position = ship.position;
+      torpedo.collisionRadius = world.torpedoCollisionRadius;
+      *shipSlots[index] = std::move(ship);
+      *torpedoSlots[index] = torpedo;
     }
 
     Base base = world.baseDefaults;
@@ -249,17 +264,8 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     base.homePlanet = planetId;
     base.position = world.planets[planetId].position + teamSettings.baseOffset;
 
-    Torpedo torpedo;
-    torpedo.id = player.torpedoId;
-    torpedo.owner = id;
-    torpedo.team = team;
-    torpedo.position = spawn;
-    torpedo.collisionRadius = world.torpedoCollisionRadius;
-
     world.playerSlots[playerIndex] = std::move(player);
-    *shipSlot = ship;
     *baseSlot = base;
-    *torpedoSlot = torpedo;
     return id;
   }
   return std::nullopt;
@@ -273,11 +279,10 @@ void removePlayer(World &world, PlayerId playerId)
     return;
 
   const auto player = **found;
-
   found->reset();
 
   for (auto &slot : world.ships)
-    if (slot && slot->id == player.shipId)
+    if (slot && slot->owner == playerId && slot->playerControlled)
       slot.reset();
 
   for (auto &slot : world.bases)
@@ -285,7 +290,7 @@ void removePlayer(World &world, PlayerId playerId)
       slot.reset();
 
   for (auto &slot : world.torpedoes)
-    if (slot && slot->id == player.torpedoId)
+    if (slot && slot->owner == playerId)
       slot.reset();
 }
 

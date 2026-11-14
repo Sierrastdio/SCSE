@@ -100,6 +100,14 @@ void readScenario(lua_State *state, int rulesReference, GameRules &rules)
   rules.playersPerTeam = static_cast<std::size_t>(playersPerTeam);
   lua_pop(state, 1);
 
+  lua_getfield(state, scenario, "ships_per_player");
+  const double shipsPerPlayer = lua_tonumber(state, -1);
+  if (!lua_isnumber(state, -1) || std::floor(shipsPerPlayer) != shipsPerPlayer || shipsPerPlayer < 1.0 ||
+      shipsPerPlayer > 65535.0)
+    throw std::runtime_error("Lua rules: ships_per_player must be an integer from 1 to 65535.");
+  rules.shipsPerPlayer = static_cast<std::size_t>(shipsPerPlayer);
+  lua_pop(state, 1);
+
   lua_getfield(state, scenario, "teams");
   requireTable(state, -1, "scenario.teams");
   const auto teamCount = lua_rawlen(state, -1);
@@ -240,7 +248,8 @@ void readScenario(lua_State *state, int rulesReference, GameRules &rules)
   lua_getfield(state, scenario, "practice_ships");
   requireTable(state, -1, "scenario.practice_ships");
   const auto practiceCount = lua_rawlen(state, -1);
-  if (practiceCount + teamCount * rules.playersPerTeam > 65535)
+  const auto playerCapacity = teamCount * rules.playersPerTeam;
+  if (practiceCount + playerCapacity * rules.shipsPerPlayer > 65535)
     throw std::runtime_error("Lua rules: player and practice ship capacity cannot exceed 65535.");
   rules.practiceNames.reserve(practiceCount);
   rules.practicePositions.reserve(practiceCount);
@@ -258,8 +267,7 @@ void readScenario(lua_State *state, int rulesReference, GameRules &rules)
     rules.practicePositions.push_back(readVector(state, targetIndex, "position"));
     lua_pop(state, 1);
   }
-  const auto playerCapacity = teamCount * rules.playersPerTeam;
-  const auto allocatedEntityIds = practiceCount + playerCapacity * 3;
+  const auto allocatedEntityIds = practiceCount + playerCapacity * (rules.shipsPerPlayer * 2 + 1);
   if (firstEntityId + static_cast<double>(allocatedEntityIds) > maxEntityId ||
       firstPlayerId + static_cast<double>(playerCapacity) > kNoPlayer)
     throw std::runtime_error("Lua rules: configured team/player counts overflow IDs.");

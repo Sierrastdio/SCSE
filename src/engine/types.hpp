@@ -110,6 +110,10 @@ struct Ship
   std::optional<PlanetId> orbitingPlanet;
   std::uint8_t orbitLevel{};
   std::optional<std::uint8_t> orbitTransferTargetLevel;
+  std::optional<PlanetId> goalPlanet;
+  std::uint8_t goalOrbitLevel{};
+  std::optional<EntityId> selectedTarget;
+  EntityId torpedoId{};
   bool playerControlled{};
   bool exists{};
 };
@@ -164,14 +168,13 @@ struct Player
   std::string station;
   EntityId shipId{};
   EntityId baseId{};
-  EntityId torpedoId{};
   EntityId selectedObject{};
   std::optional<Target> goal;
   std::uint8_t goalOrbitLevel{};
   double phasorPower{};
   double phasorDiameter{};
   WeaponId weapon{};
-  std::optional<EntityId> selectedTarget;
+  std::vector<EntityId> selectedShips;
   bool phasorEnabled{};
   bool joined{};
 };
@@ -221,6 +224,7 @@ struct World
   std::vector<std::optional<Base>> bases;
   std::vector<std::optional<Torpedo>> torpedoes;
   std::size_t playersPerTeam{};
+  std::size_t shipsPerPlayer{};
   std::uint64_t tick{};
   double elapsedSeconds{};
   double fixedStepSeconds{};

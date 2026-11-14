@@ -7,6 +7,7 @@ local rules = {
     scenario = {
         ids = {first_entity = 1, first_player = 0, default_weapon = 0},
         players_per_team = 7,
+        ships_per_player = 2,
         -- Runtime and entity templates are copied into the world at startup.
         world = {
             random_seed = 0x53504153494D,

@@ -38,6 +38,7 @@ void ConsoleApp::printHelp() const
              "  goal <planet> [level]    fly to a planet and orbit\n"
              "  orbit <level>            change orbit level\n"
              "  class <small|medium|large>  set ship class\n"
+             "  select <ship-id> [...]  select ships you control\n"
              "  target <entity-id>       aim at an entity\n"
              "  weapon <1-"
           << weaponCount
@@ -56,9 +57,11 @@ void ConsoleApp::printHelp() const
              "  speed [0.1-10000]        set playback speed\n"
              "  exit                     quit\n"
              "Aliases: ? = help, s = status.\n"
-             "Target accepts an entity ID (target 2), ship-2, ship #2, or a practice target "
-             "alias T<number>.\n"
-             "It aims at a ship; shoot hits only when it is in range and in front.\n"
+             "Select one or more friendly ships by ID; target assigns the same target to all selected ships.\n"
+             "turn, accel, decel, coast, and throttle also apply to the selected ships.\n"
+             "Target accepts an entity ID (target 2), ship-2, ship #2, or a practice target alias T<number>.\n"
+             "shoot fires from the selected ships, but only when each ship has the target in range and in front.\n"
+             "Each selected ship has its own torpedo slot; launch and detonate apply independently to the selection.\n"
              "turn rotates the nose only; accel thrusts along the nose up to the selected "
              "throttle speed, decel opposes velocity, coast coasts. Throttle stages set the "
              "speed cap relative to the L1 orbit speed.\n"
@@ -98,9 +101,9 @@ void ConsoleApp::printStatus(PlayerId playerId) const
       output_ << " | radius " << ship->position.distanceTo(planet.position) << " / " << planet.orbitLevelRadii[ship->orbitLevel - 1];
     output_ << "\n";
   }
-  else if (player->goal && player->goal->kind == Target::Kind::Planet && player->goal->id < simulation_.world().planets.size())
-    output_ << "Navigation goal: " << simulation_.world().planets[player->goal->id].name << " (orbit level "
-            << static_cast<int>(player->goalOrbitLevel) << ")"
+  else if (ship->goalPlanet && *ship->goalPlanet < simulation_.world().planets.size())
+    output_ << "Navigation goal: " << simulation_.world().planets[*ship->goalPlanet].name << " (orbit level "
+            << static_cast<int>(ship->goalOrbitLevel) << ")"
             << "\n";
   if (ship->orbitTransferTargetLevel)
   {
@@ -113,15 +116,15 @@ void ConsoleApp::printStatus(PlayerId playerId) const
     }
     output_ << "\n";
   }
-  if (player->selectedTarget)
-    output_ << "Combat target: entity " << *player->selectedTarget << "\n";
+  if (ship->selectedTarget)
+    output_ << "Combat target: entity " << *ship->selectedTarget << "\n";
   output_ << "Ship class: " << toString(ship->shipClass) << "\n";
 }
 
 void ConsoleApp::printTeams() const
 {
   const auto &world = simulation_.world();
-  output_ << "Ships (select by ID, e.g. 'select 2'; practice targets are stationary):\n";
+  output_ << "Ships (select player-owned ship IDs; practice targets are stationary):\n";
   for (const auto &team : world.teams)
   {
     output_ << static_cast<int>(team.id + 1) << ". " << team.name << " (" << world.activePlayerCount(team.id) << '/'
@@ -141,8 +144,10 @@ void ConsoleApp::printTeams() const
       output_ << " \"" << ship.name << "\"" << (ship.playerControlled ? " [player]" : " [stationary practice target]")
               << " class=" << toString(ship.shipClass) << " at (" << std::fixed << std::setprecision(0) << ship.position.x << ", "
               << ship.position.y << ", " << ship.position.z << ")"
-              << " shields=" << std::setprecision(0) << ship.combat.shields << " hull=" << ship.combat.hull - ship.combat.hullDamage
-              << '\n';
+              << " shields=" << std::setprecision(0) << ship.combat.shields << " hull=" << ship.combat.hull - ship.combat.hullDamage;
+      if (ship.selectedTarget)
+        output_ << " targeting=" << *ship.selectedTarget;
+      output_ << '\n';
     }
     for (const auto &slot : world.bases)
     {
@@ -165,7 +170,7 @@ void ConsoleApp::printPlanets() const
   }
 }
 
-WorldCommand ConsoleApp::toWorldCommand(const Command &command, PlayerId playerId) const
+WorldCommand ConsoleApp::toWorldCommand(const Command &command, PlayerId) const
 {
   switch (command.kind)
   {
@@ -184,16 +189,10 @@ WorldCommand ConsoleApp::toWorldCommand(const Command &command, PlayerId playerI
       if (command.text == "medium")
         return SetShipClass{ShipClass::Medium};
       return SetShipClass{ShipClass::Large};
-    case CommandKind::Select: return SelectTarget{Target{Target::Kind::Entity, command.target}};
+    case CommandKind::SelectShips: return SelectShips{command.shipIds};
+    case CommandKind::Target: return SelectTarget{Target{Target::Kind::Entity, command.target}};
     case CommandKind::Fire: return FirePhasor{command.hasFirst ? command.first : 1.0};
-    case CommandKind::FireTorpedo:
-    {
-      const auto *player = simulation_.world().findPlayer(playerId);
-      const auto *ship = player ? simulation_.world().findShip(player->shipId) : nullptr;
-      const double yaw = ship ? ship->orientation.yawDegrees * std::numbers::pi / 180.0 : 0.0;
-      const double pitch = ship ? ship->orientation.pitchDegrees * std::numbers::pi / 180.0 : 0.0;
-      return FireTorpedo{command.first, {std::cos(pitch) * std::cos(yaw), std::cos(pitch) * std::sin(yaw), std::sin(pitch)}};
-    }
+    case CommandKind::FireTorpedo: return FireTorpedo{command.first, {}, true};
     case CommandKind::Detonate: return DetonateTorpedo{};
     case CommandKind::SetWeapon: return SetWeaponProfile{command.target};
     case CommandKind::Repair: return RepairVessel{command.first};
@@ -266,7 +265,8 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
     case CommandKind::Repair:
     case CommandKind::Transfer:
     case CommandKind::Load:
-    case CommandKind::Select:
+    case CommandKind::Target:
+    case CommandKind::SelectShips:
       if (command.kind == CommandKind::Fire && command.hasFirst && command.first <= 0.0)
       {
         output_ << "Power must be positive.\n";
@@ -286,10 +286,15 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
                 << '\n';
         break;
       }
-      if (command.kind == CommandKind::Select && !command.hasTarget)
+      if (command.kind == CommandKind::Target && !command.hasTarget)
       {
         output_ << "Usage: target <entity-id> (e.g. target 2, target ship-2, or target T2; see "
                    "teams)\n";
+        break;
+      }
+      if (command.kind == CommandKind::SelectShips && (command.hasInvalidShipId || command.shipIds.empty()))
+      {
+        output_ << "Usage: select <friendly-ship-id> [friendly-ship-id ...] (see teams)\n";
         break;
       }
       if (command.kind == CommandKind::Load && (command.target < 1 || command.target > simulation_.world().planets.size()))

@@ -58,6 +58,7 @@ public:
   WeaponId defaultWeapon{};
 
   std::size_t playersPerTeam{};
+  std::size_t shipsPerPlayer{};
   std::vector<Team> teams;
   std::vector<Planet> planets;
   std::vector<WeaponProfile> weapons;

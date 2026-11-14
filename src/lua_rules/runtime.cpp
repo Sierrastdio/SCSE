@@ -132,11 +132,13 @@ GameRules &GameRules::operator=(GameRules &&) noexcept = default;
 void GameRules::applyScenario(World &world) const
 {
   const auto playerCapacity = teams.size() * playersPerTeam;
-  const auto entityCapacity = playerCapacity + practiceNames.size();
+  const auto shipCapacity = playerCapacity * shipsPerPlayer + practiceNames.size();
+  const auto torpedoCapacity = playerCapacity * shipsPerPlayer;
   world.nextEntityId = firstEntityId;
   world.entityIdStart = firstEntityId;
   world.playerIdStart = firstPlayerId;
   world.playersPerTeam = playersPerTeam;
+  world.shipsPerPlayer = shipsPerPlayer;
   world.defaultWeapon = defaultWeapon;
   world.random.seed(world.randomSeedOverride.value_or(randomSeed));
   world.randomSeedOverride.reset();
@@ -155,9 +157,9 @@ void GameRules::applyScenario(World &world) const
   world.planets = planets;
   world.weapons = weapons;
   world.playerSlots.resize(playerCapacity);
-  world.ships.resize(entityCapacity);
-  world.bases.resize(entityCapacity);
-  world.torpedoes.resize(entityCapacity);
+  world.ships.resize(shipCapacity);
+  world.bases.resize(playerCapacity);
+  world.torpedoes.resize(torpedoCapacity);
   for (std::size_t i = 0; i < practiceNames.size(); ++i)
   {
     Ship target = practiceShipDefaults;

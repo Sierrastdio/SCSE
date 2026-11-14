@@ -49,10 +49,16 @@ struct SelectTarget
   Target target{};
 };
 
+struct SelectShips
+{
+  std::vector<EntityId> ships;
+};
+
 struct FireTorpedo
 {
   double energy{};
   Vec3 aim{};
+  bool useShipFacing{};
 };
 
 struct DetonateTorpedo
@@ -93,8 +99,9 @@ struct SetAlliances
 };
 
 using WorldCommand =
-  std::variant<SetHeading, SetAcceleration, SetThrottleLevel, SetGoal, SetOrbitLevel, SetShipClass, SelectTarget, FirePhasor,
-    FireTorpedo, DetonateTorpedo, SetWeaponProfile, RepairVessel, TransferResources, LoadFromPlanet, SetAlliances, TickWorld>;
+  std::variant<SetHeading, SetAcceleration, SetThrottleLevel, SetGoal, SetOrbitLevel, SetShipClass, SelectTarget, SelectShips,
+    FirePhasor, FireTorpedo, DetonateTorpedo, SetWeaponProfile, RepairVessel, TransferResources, LoadFromPlanet, SetAlliances,
+    TickWorld>;
 
 enum class CommandStatus : std::uint8_t
 {
