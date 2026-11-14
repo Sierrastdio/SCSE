@@ -126,14 +126,18 @@ void ConsoleApp::printTeams() const
   {
     output_ << static_cast<int>(team.id + 1) << ". " << team.name << " (" << world.activePlayerCount(team.id) << '/'
             << world.playersPerTeam << ")\n";
+    bool practiceAliasPrinted = false;
     for (const auto &slot : world.ships)
     {
       if (!slot || !slot->exists || slot->team != team.id)
         continue;
       const auto &ship = *slot;
       output_ << "  ship id=" << ship.id;
-      if (!ship.playerControlled)
+      if (!ship.playerControlled && !practiceAliasPrinted)
+      {
         output_ << " alias=T" << static_cast<int>(ship.team + 1);
+        practiceAliasPrinted = true;
+      }
       output_ << " \"" << ship.name << "\"" << (ship.playerControlled ? " [player]" : " [stationary practice target]")
               << " class=" << toString(ship.shipClass) << " at (" << std::fixed << std::setprecision(0) << ship.position.x << ", "
               << ship.position.y << ", " << ship.position.z << ")"

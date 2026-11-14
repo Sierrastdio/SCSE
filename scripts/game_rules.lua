@@ -100,6 +100,11 @@ local rules = {
             {team_id = 2, name = "Practice target Diffractions", position = {-100, 0, 0}},
             {team_id = 3, name = "Practice target Lasers", position = { 0, -100, 0 }},
             {team_id = 4, name = "Practice target Lasers", position = {0, -100, 100}},
+            {team_id = 0, name = "Practice target Aggstroms 2", position = {150, 0, 0}},
+            {team_id = 1, name = "Practice target Fouriers 2", position = {0, 150, 0}},
+            {team_id = 2, name = "Practice target Diffractions 2", position = {-150, 0, 0}},
+            {team_id = 3, name = "Practice target Lasers 2", position = { 0, -150, 0 }},
+            {team_id = 4, name = "Practice target Lasers 2", position = {0, -150, 100}},
         },
     },
 
