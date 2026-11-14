@@ -28,8 +28,11 @@ Vec3 gravityAt(const World &world, const Vec3 &position)
   {
     const Vec3 towardPlanet = planet.position - position;
     const double distanceSquared = towardPlanet.lengthSquared();
+
     if (distanceSquared <= 1e-18 || planet.gravitationalParameter <= 0.0)
+    {
       continue;
+    }
 
     // Newtonian gravity outside the body; uniform-density falloff inside it.
     const double radius = std::max(planet.radius, 1.0);
@@ -48,16 +51,24 @@ void resolvePlanetSurface(const World &world, Ship &ship)
     const Vec3 fromCenter = ship.position - planet.position;
     const double collisionDistance = planet.radius + ship.collisionRadius;
     const double distanceSquared = fromCenter.lengthSquared();
+
     if (distanceSquared >= collisionDistance * collisionDistance)
+    {
       continue;
+    }
 
     const double distance = std::sqrt(distanceSquared);
+
     const Vec3 normal = distance > 1e-9 ? fromCenter * (1.0 / distance) : Vec3{1.0, 0.0, 0.0};
+
     ship.position = planet.position + normal * collisionDistance;
 
     const double inwardSpeed = dot(ship.velocity, normal);
+
     if (inwardSpeed < 0.0)
+    {
       ship.velocity -= normal * inwardSpeed;
+    }
   }
 }
 
@@ -65,26 +76,44 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
 
 bool integrateStableOrbit(World &world, Player *player, Ship &ship, double dt, const GameRules &rules)
 {
-  if (!ship.orbitingPlanet || ship.orbitTransferTargetLevel || ship.orbitLevel == 0 || *ship.orbitingPlanet >= world.planets.size() ||
-      dt <= 0.0)
+  if (!ship.orbitingPlanet || ship.orbitTransferTargetLevel || ship.orbitLevel == 0 || *ship.orbitingPlanet >= world.planets.size()
+      || dt <= 0.0)
+  {
     return false;
+  }
 
   const Planet &planet = world.planets[*ship.orbitingPlanet];
+
   if (ship.orbitLevel > planet.orbitLevelCount || planet.gravitationalParameter <= 0.0)
+  {
     return false;
+  }
 
   const double orbitRadius = planet.orbitLevelRadii[ship.orbitLevel - 1];
+
   const Vec3 relativePosition = ship.position - planet.position;
+
   const double radius = relativePosition.length();
+
   if (radius <= 1e-9 || orbitRadius <= 0.0)
+  {
     return false;
+  }
 
   const Vec3 radial = relativePosition * (1.0 / radius);
+
   Vec3 tangentVelocity = ship.velocity - radial * dot(ship.velocity, radial);
+
   if (tangentVelocity.length() <= 1e-6)
+  {
     tangentVelocity = cross({0.0, 0.0, 1.0}, radial);
+  }
+
   if (tangentVelocity.length() <= 1e-6)
+  {
     tangentVelocity = cross({0.0, 1.0, 0.0}, radial);
+  }
+
   const Vec3 tangent = tangentVelocity * (1.0 / tangentVelocity.length());
 
   const double angularRate = std::sqrt(planet.gravitationalParameter / (orbitRadius * orbitRadius * orbitRadius));
@@ -98,20 +127,26 @@ bool integrateStableOrbit(World &world, Player *player, Ship &ship, double dt, c
   ship.speed = orbitSpeed;
   ship.warp = orbitSpeed;
   ship.acceleration = AccelerationMode::Cruise;
+
   if (player && ship.selectedTarget)
+  {
     turnTowardGoal(world, player, ship, dt, rules);
+  }
   else
   {
     ship.orientation = orientationToward(nextTangent);
     ship.desiredOrientation = ship.orientation;
   }
+
   return true;
 }
 
 bool integrateOrbitTransfer(World &world, Ship &ship, double dt, const GameRules &rules)
 {
   if (!ship.orbitingPlanet || !ship.orbitTransferTargetLevel)
+  {
     return false;
+  }
 
   const Planet &planet = world.planets[*ship.orbitingPlanet];
 
@@ -124,19 +159,34 @@ bool integrateOrbitTransfer(World &world, Ship &ship, double dt, const GameRules
   const double radius = relativePosition.length();
 
   if (radius <= 1e-9 || dt <= 0.0)
+  {
     return false;
+  }
 
   const Vec3 radial = relativePosition * (1.0 / radius);
+
   Vec3 tangentVelocity = ship.velocity - radial * dot(ship.velocity, radial);
+
   if (tangentVelocity.length() <= 1e-6)
+  {
     tangentVelocity = cross({0.0, 0.0, 1.0}, radial);
+  }
+
   if (tangentVelocity.length() <= 1e-6)
+  {
     tangentVelocity = cross({0.0, 1.0, 0.0}, radial);
+  }
+
   const Vec3 tangent = tangentVelocity * (1.0 / tangentVelocity.length());
+
   Vec3 normal = cross(radial, tangent);
+
   const double normalLength = normal.length();
+
   if (normalLength <= 1e-9)
+  {
     return false;
+  }
 
   const double requestedStep = rules.transferRadialStep(radius, targetRadius, dt);
 
@@ -205,8 +255,8 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
 
   const double maxTurn = ship.turnRateDegreesPerSecond * dt;
   ship.orientation.yawDegrees = approachAngle(ship.orientation.yawDegrees, ship.desiredOrientation.yawDegrees, maxTurn);
-  ship.orientation.pitchDegrees =
-    std::clamp(approachAngle(ship.orientation.pitchDegrees, ship.desiredOrientation.pitchDegrees, maxTurn), -90.0, 90.0);
+  ship.orientation.pitchDegrees
+    = std::clamp(approachAngle(ship.orientation.pitchDegrees, ship.desiredOrientation.pitchDegrees, maxTurn), -90.0, 90.0);
 }
 
 void updateApproachThrottle(World &world, Ship &ship, double dt, const GameRules &rules)

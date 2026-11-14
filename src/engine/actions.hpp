@@ -98,10 +98,9 @@ struct SetAlliances
   bool allied{};
 };
 
-using WorldCommand =
-  std::variant<SetHeading, SetAcceleration, SetThrottleLevel, SetGoal, SetOrbitLevel, SetShipClass, SelectTarget, SelectShips,
-    FirePhasor, FireTorpedo, DetonateTorpedo, SetWeaponProfile, RepairVessel, TransferResources, LoadFromPlanet, SetAlliances,
-    TickWorld>;
+using WorldCommand = std::variant<SetHeading, SetAcceleration, SetThrottleLevel, SetGoal, SetOrbitLevel, SetShipClass, SelectTarget,
+  SelectShips, FirePhasor, FireTorpedo, DetonateTorpedo, SetWeaponProfile, RepairVessel, TransferResources, LoadFromPlanet,
+  SetAlliances, TickWorld>;
 
 enum class CommandStatus : std::uint8_t
 {

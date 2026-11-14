@@ -23,35 +23,65 @@ Orientation orientationToward(const Vec3 &direction)
 CombatState *combatState(World &world, Target target)
 {
   if (target.kind != Target::Kind::Entity)
+  {
     return nullptr;
+  }
+
   if (auto *ship = world.findShip(target.id))
+  {
     return &ship->combat;
+  }
+
   if (auto *base = world.findBase(target.id))
+  {
     return &base->combat;
+  }
+
   return nullptr;
 }
 
 std::optional<TeamId> teamOf(const World &world, EntityId id)
 {
   if (const auto *ship = world.findShip(id))
+  {
     return ship->team;
+  }
+
   if (const auto *base = world.findBase(id))
+  {
     return base->team;
+  }
+
   if (const auto *torpedo = world.findTorpedo(id))
+  {
     return torpedo->team;
+  }
+
   return std::nullopt;
 }
 
 Vec3 *positionOf(World &world, Target target)
 {
   if (target.kind == Target::Kind::Planet)
+  {
     return target.id < world.planets.size() ? &world.planets[target.id].position : nullptr;
+  }
+
   if (auto *ship = world.findShip(target.id))
+  {
     return &ship->position;
+  }
+
   if (auto *base = world.findBase(target.id))
+  {
     return &base->position;
+  }
+
   if (auto *torpedo = world.findTorpedo(target.id))
+  {
     return &torpedo->position;
+  }
+
   return nullptr;
 }
 

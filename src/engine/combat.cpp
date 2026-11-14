@@ -13,10 +13,10 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
 {
   for (auto &slot : world.ships)
   {
-    if (!slot || !slot->exists || slot->combat.destroyed || slot->owner == torpedo.owner ||
-        (torpedo.team < world.teams.size() && slot->team < world.teams.size() &&
-          std::ranges::find(world.teams[torpedo.team].allies, slot->team) != world.teams[torpedo.team].allies.end() &&
-          !world.friendlyFire))
+    if (!slot || !slot->exists || slot->combat.destroyed || slot->owner == torpedo.owner
+        || (torpedo.team < world.teams.size() && slot->team < world.teams.size()
+            && std::ranges::find(world.teams[torpedo.team].allies, slot->team) != world.teams[torpedo.team].allies.end()
+            && !world.friendlyFire))
       continue;
 
     const double distance = slot->position.distanceTo(torpedo.position);
@@ -41,48 +41,67 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
 CommandResult executeAction(World &world, Player &player, Ship &ship, const FirePhasor &action)
 {
   if (!std::isfinite(action.power) || action.power <= 0.0)
+  {
     return {CommandStatus::Invalid, "Weapon power must be positive and finite."};
+  }
 
   if (!ship.selectedTarget)
+  {
     return {CommandStatus::Invalid, "Select a target first."};
+  }
 
   const auto weaponIndex = static_cast<std::size_t>(player.weapon);
 
   if (weaponIndex >= world.weapons.size())
+  {
     return {CommandStatus::Invalid, "Selected weapon profile is invalid."};
+  }
 
   const auto &weapon = world.weapons[weaponIndex];
   const double cost = weapon.energyCost * action.power;
 
   if (ship.resources.energy < cost)
+  {
     return {CommandStatus::Invalid, "Insufficient energy."};
+  }
 
   const EntityId targetId = *ship.selectedTarget;
   const auto targetTeam = teamOf(world, targetId);
 
   if (!targetTeam)
+  {
     return {CommandStatus::NotFound, "Selected target no longer exists."};
+  }
 
-  if (*targetTeam < world.teams.size() &&
-      std::ranges::find(world.teams[player.team].allies, *targetTeam) != world.teams[player.team].allies.end() && !world.friendlyFire)
+  if (*targetTeam < world.teams.size()
+      && std::ranges::find(world.teams[player.team].allies, *targetTeam) != world.teams[player.team].allies.end()
+      && !world.friendlyFire)
+  {
     return {CommandStatus::Invalid, "Cannot fire on an allied target."};
+  }
 
   auto *targetPosition = positionOf(world, Target{Target::Kind::Entity, targetId});
 
   if (!targetPosition)
+  {
     return {CommandStatus::Invalid, "Target is outside weapon range."};
+  }
 
   const Vec3 direction = *targetPosition - ship.position;
   const double distance = direction.length();
 
   if (distance > weapon.range)
+  {
     return {CommandStatus::Invalid, "Target is outside weapon range."};
+  }
 
   const Vec3 forward = forwardVector(ship.orientation);
   const double alignment = (forward.x * direction.x + forward.y * direction.y + forward.z * direction.z) / std::max(distance, 1e-9);
 
   if (alignment < 0.985)
+  {
     return {CommandStatus::Invalid, "Target is outside the weapon's forward arc."};
+  }
 
   if (auto *torpedo = world.findTorpedo(targetId))
   {
@@ -92,7 +111,9 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
       torpedo->energy = std::max(0.0, torpedo->energy - action.power);
 
       if (torpedo->energy == 0.0)
+      {
         torpedo->exists = false;
+      }
 
       return {CommandStatus::Applied, "Torpedo intercepted."};
     }
@@ -101,7 +122,9 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   auto *targetCombat = combatState(world, Target{Target::Kind::Entity, targetId});
 
   if (!targetCombat)
+  {
     return {CommandStatus::Invalid, "Selected target cannot take weapon damage."};
+  }
 
   ship.resources.energy -= cost;
 
@@ -112,7 +135,9 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   targetCombat->hullDamage = std::min(targetCombat->hull, targetCombat->hullDamage + (damage - shieldDamage));
 
   if (targetCombat->hullDamage >= targetCombat->hull)
+  {
     targetCombat->destroyed = true;
+  }
 
   return {CommandStatus::Applied, targetCombat->destroyed ? "Target destroyed." : "Target hit."};
 }
@@ -120,14 +145,21 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
 CommandResult executeAction(World &world, Player &player, Ship &ship, const FireTorpedo &action)
 {
   if (!std::isfinite(action.energy) || action.energy <= 0.0 || ship.resources.energy < action.energy)
+  {
     return {CommandStatus::Invalid, "Invalid torpedo energy or insufficient energy."};
+  }
 
   auto *torpedoSlot = world.findTorpedo(ship.torpedoId);
 
   if (!torpedoSlot)
+  {
     return {CommandStatus::NotFound, "Your torpedo slot is missing."};
+  }
+
   if (torpedoSlot->exists)
+  {
     return {CommandStatus::Invalid, "Your torpedo is already active."};
+  }
 
   Vec3 aim = action.useShipFacing ? forwardVector(ship.orientation) : action.aim;
 
@@ -135,13 +167,17 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   {
     const Vec3 *targetPosition = positionOf(world, Target{Target::Kind::Entity, *ship.selectedTarget});
     if (targetPosition)
+    {
       aim = *targetPosition - ship.position;
+    }
   }
 
   const double aimLength = aim.length();
 
   if (!std::isfinite(aimLength) || aimLength <= 1e-9)
+  {
     return {CommandStatus::Invalid, "Torpedo aim vector must be finite and non-zero."};
+  }
 
   ship.resources.energy -= action.energy;
   aim = aim * (1.0 / aimLength);
@@ -168,7 +204,9 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const DetonateTo
   auto *torpedo = world.findTorpedo(ship.torpedoId);
 
   if (!torpedo || !torpedo->exists)
+  {
     return {CommandStatus::Invalid, "No active torpedo."};
+  }
 
   applyTorpedoBlast(world, *torpedo, 250.0);
   torpedo->exists = false;
@@ -180,7 +218,9 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const DetonateTo
 CommandResult executeAction(World &world, Player &player, Ship &, const SetWeaponProfile &action)
 {
   if (action.weapon >= world.weapons.size())
+  {
     return {CommandStatus::Invalid, "Weapon profile is out of range."};
+  }
 
   player.weapon = action.weapon;
 
@@ -192,7 +232,9 @@ void updateTorpedoes(World &world)
   for (auto &slot : world.torpedoes)
   {
     if (!slot || !slot->exists || slot->detonated)
+    {
       continue;
+    }
 
     const double dt = world.fixedStepSeconds;
     slot->velocity += gravityAcceleration(world, slot->position) * dt;
@@ -216,10 +258,10 @@ void updateTorpedoes(World &world)
 
     for (const auto &targetSlot : world.ships)
     {
-      if (!targetSlot || !targetSlot->exists || targetSlot->combat.destroyed || targetSlot->owner == slot->owner ||
-          (slot->team < world.teams.size() && targetSlot->team < world.teams.size() &&
-            std::ranges::find(world.teams[slot->team].allies, targetSlot->team) != world.teams[slot->team].allies.end() &&
-            !world.friendlyFire))
+      if (!targetSlot || !targetSlot->exists || targetSlot->combat.destroyed || targetSlot->owner == slot->owner
+          || (slot->team < world.teams.size() && targetSlot->team < world.teams.size()
+              && std::ranges::find(world.teams[slot->team].allies, targetSlot->team) != world.teams[slot->team].allies.end()
+              && !world.friendlyFire))
         continue;
 
       const Vec3 offset = slot->position - targetSlot->position;
@@ -233,7 +275,9 @@ void updateTorpedoes(World &world)
     }
 
     if (!impact && slot->lifeSeconds > 0.0)
+    {
       continue;
+    }
 
     applyTorpedoBlast(world, *slot, impact ? 250.0 : 100.0);
     slot->exists = false;
