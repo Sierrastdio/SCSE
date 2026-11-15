@@ -264,8 +264,9 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
 
       const auto weaponIndex = static_cast<std::size_t>(player->weapon);
 
+      const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
       const Vec3 aimDirection = rules.weaponAimDirection(relativePosition, targetVelocity,
-        weaponIndex < world.weapons.size() ? world.weapons[weaponIndex].projectileSpeed : 0.0);
+        weapon ? weapon->projectileSpeed : 0.0, weapon ? weapon->aim : WeaponAimSettings{});
 
       ship.desiredOrientation = orientationToward(aimDirection);
     }
@@ -390,7 +391,7 @@ bool captureGoalOrbit(World &world, Player *player, Ship &ship, const Vec3 &star
   }
   const auto requestedLevel = ship.goalOrbitLevel;
   // Capture starts from the actual crossing position and velocity. Do not
-  // reset the ship to level 1; the Lua transfer policy handles the remaining
+  // reset the ship to level 1; the transfer policy handles the remaining
   // radial distance to the requested level from here.
   ship.orbitingPlanet = planet.id;
   ship.orbitLevel = 0;

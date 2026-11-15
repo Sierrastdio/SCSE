@@ -79,8 +79,17 @@ struct CombatState
   bool destroyed{};
 };
 
+struct WeaponAimSettings
+{
+  double maximumLeadSeconds{60.0};
+  // Maximum absolute yaw and pitch error from the ship's facing; 180 degrees accepts any angle.
+  double maximumHorizontalFiringAngleDegrees{10.0};
+  double maximumVerticalFiringAngleDegrees{10.0};
+};
+
 struct WeaponProfile
 {
+  // Shared weapon definition; ship-specific modifiers can be layered on when weapon mounts are introduced.
   std::string name;
   double energyCost{};
   double damage{};
@@ -88,6 +97,7 @@ struct WeaponProfile
   double projectileSpeed{};
   bool explosive{};
   double splashRadius{};
+  WeaponAimSettings aim{};
 };
 
 struct Ship

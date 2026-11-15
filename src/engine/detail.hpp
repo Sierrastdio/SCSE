@@ -21,7 +21,7 @@ namespace spasim::detail
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const SetOrbitLevel &, const GameRules &);
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const SetShipClass &, const GameRules &);
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const SelectTarget &, const GameRules &);
-[[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const FirePhasor &);
+[[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const FirePhasor &, const GameRules &);
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const FireTorpedo &);
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const DetonateTorpedo &);
 [[nodiscard]] CommandResult executeAction(World &, Player &, Ship &, const SetWeaponProfile &);

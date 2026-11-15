@@ -29,15 +29,16 @@ An **entity** is any independently identified thing that exists in the simulated
 
 Avoid speculative “universal ECS” machinery at this stage. A small typed model and focused systems are clearer; generalize after a second concrete game/scenario proves which abstractions repeat.
 
-### Script boundary (current direction)
+### Rules and scenario configuration
 
-Use embedded Lua 5.4 for game rules and rapid balance iteration while keeping simulation ownership and physical state changes in C++.
+The current prototype keeps its scenario data and gameplay policy calculations in C++. Scenario values live in `src/rules/scenario.cpp`; calculations are split by use under `src/rules/calculations/`:
 
-- C++ owns entity/world state, deterministic stepping, forces, collision, and final movement updates.
-- Lua supplies editable policy/configuration such as ship-class limits, orbit-level layout, orbit-transfer maneuver policy, weapon profiles, scenarios, and later economy rules.
-- Scripts return validated rule values or policy decisions through a narrow API. They do not receive unrestricted mutable references to `World`, `Ship`, or `Planet`.
-- Load `scripts/game_rules.lua`. The C++ loader validates the rule table at startup; invalid values stop startup with a useful error. Rule edits take effect after restart.
-- The current console executable requires Lua 5.4.
+- `orbit.cpp`: orbit radius and radial transfer step.
+- `flight.cpp`: speed limits and approach throttle decisions.
+- `weapon_aim.cpp`: target lead/intercept direction.
+
+The engine owns world state, deterministic stepping, forces, collision, and final movement updates. These built-in values are provisional and require a rebuild after edits. Keep uncertain or reconstructed legacy behavior isolated in named rules functions.
+Each `WeaponProfile` owns its weapon-specific combat and aim settings. Horizontal and vertical firing limits are independent maximum errors from the ship's facing. Future ship-specific bonuses should be resolved as mount/instance overrides, not written back into the shared profile.
 
 ## Program identity and dependencies
 
@@ -119,14 +120,16 @@ Represent each legacy command as a function taking `(World&, PlayerId, CommandAr
 
 ### Current repository implementation
 
-The simulation engine currently exists in `src/engine/`; Lua loading and policy code lives in `src/lua_rules/`:
+The simulation engine currently exists in `src/engine/`; built-in scenario and policy code lives in `src/rules/`:
 
 - `types.hpp`: `World`, `Team`, `Player`, `Ship`, `Base`, `Torpedo`, `Planet`, IDs, vectors, resources, combat and movement state.
-- `world.cpp`: scenario-sized world slots, deterministic random generator, team join/leave and entity lookup. Team, player-per-team, ships-per-player, planet, and weapon counts are loaded from Lua.
+- `world.cpp`: scenario-sized world slots, deterministic random generator, team join/leave and entity lookup.
 - `engine.cpp` and `actions.hpp`: fixed-step dispatch and typed `WorldCommand` actions.
 - `movement.cpp`, `navigation.cpp`, `combat.cpp`, `economy.cpp`, and `math.cpp`: engine systems grouped by behavior.
 - `src/console/`: terminal sign-on, text command parsing, and JSON debug snapshots, kept outside the reusable engine.
-- `src/lua_rules/`: Lua runtime, scenario parsing, and value validation.
+- `src/rules/game_rules.hpp`: typed scenario and gameplay rule model.
+- `src/rules/scenario.cpp`: typed scenario defaults and initial world setup.
+- `src/rules/calculations/`: calculations grouped by orbit, flight control, and weapon aiming.
 - `main.cpp` and `CMakeLists.txt`: executable entry point and C++20 build.
 
 This is a structured core, not yet a faithful rules port. Placeholder starting resources, simple movement, and inactive economy/hit resolution are explicitly provisional. Replace each only after reconciling source operators and common-memory initial values. Goals are typed as entity or planet targets. The core intentionally has no real-time main loop yet; the application/engine loop should be added only after its simulation and input facilities are complete.
@@ -137,7 +140,7 @@ The sample console now runs a fixed-step loop while a dedicated input reader fee
 
 The console `turn x y z` input is interpreted as a desired forward direction vector, not yaw/pitch angles and not a world-space destination. The vector is converted to heading/pitch and the ship slews toward it at its configured turn rate. Status prints the current normalized facing vector and the internal yaw/pitch angles so a slow turn can be distinguished from a failed command.
 
-Lua currently provides the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. Console `select` chooses one or more player-owned ships; `target` assigns an entity target per selected ship, and finite-speed projectile profiles can use the Lua intercept solution. Direct flight commands can be issued to the current selection. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `scripts/game_rules.lua`.
+The built-in C++ rules provide the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. Console `select` chooses one or more player-owned ships; `target` assigns an entity target per selected ship, and finite-speed projectile profiles use the intercept calculation. Direct flight commands can be issued to the current selection. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `src/rules/scenario.cpp`.
 
 For debug rendering, the console layer exports entity/planet state as JSON without adding a graphics dependency to the engine. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
 
@@ -197,4 +200,4 @@ Line references refer to numbered source statements printed in the attachment:
 
 ## User-requested feature backlog
 
-- **Prototype implemented:** Ship classes restrict access to inner orbit levels, and an automatic controller transfers between levels. Current class limits and radii are provisional values in `scripts/game_rules.lua` and need playtesting.
+- **Prototype implemented:** Ship classes restrict access to inner orbit levels, and an automatic controller transfers between levels. Current class limits and radii are provisional values in `src/rules/scenario.cpp` and need playtesting.

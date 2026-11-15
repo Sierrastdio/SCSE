@@ -7,8 +7,7 @@ project(SCSE
 )
 
 option(SCSE_BUILD_CONSOLE "Build the sample console front end" ON)
-
-find_package(Lua 5.4 REQUIRED)
+include(CTest)
 
 add_library(scse_core
     src/engine/combat.cpp
@@ -18,14 +17,14 @@ add_library(scse_core
     src/engine/movement.cpp
     src/engine/navigation.cpp
     src/engine/world.cpp
-    src/lua_rules/read_values.cpp
-    src/lua_rules/runtime.cpp
-    src/lua_rules/scenario.cpp
+    src/rules/scenario.cpp
+    src/rules/calculations/orbit.cpp
+    src/rules/calculations/flight.cpp
+    src/rules/calculations/weapon_aim.cpp
     src/console/snapshot.cpp
 )
 
-target_include_directories(scse_core PUBLIC src PRIVATE ${LUA_INCLUDE_DIR})
-target_link_libraries(scse_core PUBLIC ${LUA_LIBRARIES})
+target_include_directories(scse_core PUBLIC src)
 target_compile_features(scse_core PUBLIC cxx_std_20)
 
 if(MSVC)
@@ -41,14 +40,15 @@ if(SCSE_BUILD_CONSOLE)
         src/console/terminal.cpp
     )
     target_link_libraries(scse PRIVATE scse_core)
-    add_custom_command(TARGET scse POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${CMAKE_CURRENT_SOURCE_DIR}/scripts
-                $<TARGET_FILE_DIR:scse>/scripts
-    )
     if(MSVC)
         target_compile_options(scse PRIVATE /W4 /permissive-)
     else()
         target_compile_options(scse PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    if(BUILD_TESTING)
+        add_executable(scse_rules_tests tests/rules_test.cpp)
+        target_link_libraries(scse_rules_tests PRIVATE scse_core)
+        add_test(NAME scse_rules_tests COMMAND scse_rules_tests)
     endif()
 endif()

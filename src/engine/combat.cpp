@@ -38,7 +38,7 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
 
 } // namespace
 
-CommandResult executeAction(World &world, Player &player, Ship &ship, const FirePhasor &action)
+CommandResult executeAction(World &world, Player &player, Ship &ship, const FirePhasor &action, const GameRules &rules)
 {
   if (!std::isfinite(action.power) || action.power <= 0.0)
   {
@@ -95,12 +95,9 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     return {CommandStatus::Invalid, "Target is outside weapon range."};
   }
 
-  const Vec3 forward = forwardVector(ship.orientation);
-  const double alignment = (forward.x * direction.x + forward.y * direction.y + forward.z * direction.z) / std::max(distance, 1e-9);
-
-  if (alignment < 0.985)
+  if (!rules.isWithinFiringArc(ship.orientation, direction, weapon.aim))
   {
-    return {CommandStatus::Invalid, "Target is outside the weapon's forward arc."};
+    return {CommandStatus::Invalid, "Target is outside the weapon's horizontal or vertical firing limits."};
   }
 
   if (auto *torpedo = world.findTorpedo(targetId))

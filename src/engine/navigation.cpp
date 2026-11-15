@@ -22,12 +22,9 @@ CommandResult executeAction(World &, Player &player, Ship &ship, const SetHeadin
 
   ship.selectedTarget.reset();
 
-  if (ship.orbitTransferTargetLevel)
-  {
-    ship.orbitTransferTargetLevel.reset();
-    ship.orbitingPlanet.reset();
-    ship.orbitLevel = 0;
-  }
+  ship.orbitTransferTargetLevel.reset();
+  ship.orbitingPlanet.reset();
+  ship.orbitLevel = 0;
 
   ship.desiredOrientation = orientationToward(action.direction);
 
@@ -101,7 +98,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetG
 
   if (action.orbitLevel == 0 || action.orbitLevel > rules.maximumLevel(ship.shipClass))
   {
-    return {CommandStatus::Invalid, "This ship class cannot enter that orbit level; check class and Lua orbit rules."};
+    return {CommandStatus::Invalid, "This ship class cannot enter that orbit level; check the configured orbit rules."};
   }
 
   // A goal for the planet we already orbit is an orbit-level order. Keep the
@@ -172,7 +169,7 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const SetOrbitLe
 
   if (action.level == 0 || action.level > rules.maximumLevel(ship.shipClass))
   {
-    return {CommandStatus::Invalid, "This ship class cannot enter that orbit level; check class and Lua orbit rules."};
+    return {CommandStatus::Invalid, "This ship class cannot enter that orbit level; check the configured orbit rules."};
   }
 
   if (action.level == ship.orbitLevel)
@@ -234,9 +231,9 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Sele
 
   const auto weaponIndex = static_cast<std::size_t>(player.weapon);
 
-  const double projectileSpeed = weaponIndex < world.weapons.size() ? world.weapons[weaponIndex].projectileSpeed : 0.0;
-
-  const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity, projectileSpeed);
+  const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
+  const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity,
+    weapon ? weapon->projectileSpeed : 0.0, weapon ? weapon->aim : WeaponAimSettings{});
 
   const bool navigationActive = ship.goalPlanet.has_value() || ship.orbitTransferTargetLevel.has_value();
 

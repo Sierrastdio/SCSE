@@ -24,7 +24,7 @@ bool isControlledShip(const Ship *ship, PlayerId playerId)
 
 } // namespace
 
-Simulation::Simulation(World world, std::filesystem::path rulesPath) : world_(std::move(world)), gameRules_(rulesPath)
+Simulation::Simulation(World world) : world_(std::move(world)), gameRules_()
 {
   gameRules_.applyScenario(world_);
   for (auto &planet : world_.planets)
@@ -196,7 +196,7 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand &command
             continue;
           }
 
-          lastResult = detail::executeAction(world_, *player, *selectedShip, action);
+          lastResult = detail::executeAction(world_, *player, *selectedShip, action, gameRules_);
 
           if (lastResult)
           {
