@@ -29,12 +29,18 @@ struct GameRules::Runtime
 GameRules::GameRules(const std::filesystem::path &scriptPath) : runtime_(std::make_unique<Runtime>())
 {
   runtime_->state = luaL_newstate();
+
   if (!runtime_->state)
+  {
     throw std::runtime_error("Could not create the Lua rules runtime.");
+  }
 
   openRuleLibraries(runtime_->state);
+
   if (luaL_dofile(runtime_->state, scriptPath.string().c_str()) != LUA_OK)
+  {
     throwLuaError(runtime_->state, "Could not load " + scriptPath.string() + ": ");
+  }
 
   lua_State *state = runtime_->state;
   requireTable(state, -1, "root");
@@ -47,57 +53,95 @@ GameRules::GameRules(const std::filesystem::path &scriptPath) : runtime_(std::ma
   lua_rawgeti(state, LUA_REGISTRYINDEX, runtime_->rulesReference);
   lua_getfield(state, -1, "orbit");
   requireTable(state, -1, "orbit");
+
   const double count = readNumber(state, -1, "level_count");
+
   if (std::floor(count) != count || count < 2.0 || count > kMaxOrbitLevels)
+  {
     throw std::runtime_error("Lua rules: orbit.level_count must be between 2 and 8.");
+  }
+
   levelCount = static_cast<std::uint8_t>(count);
   sphereOfInfluenceRadius = readNumber(state, -1, "sphere_of_influence_radius");
+
   if (sphereOfInfluenceRadius <= 0.0)
+  {
     throw std::runtime_error("Lua rules: sphere_of_influence_radius must be positive.");
+  }
+
   const double maxTransferSpeed = readNumber(state, -1, "transfer_max_radial_speed");
   const double transferAcceleration = readNumber(state, -1, "transfer_radial_acceleration");
+
   if (maxTransferSpeed <= 0.0 || transferAcceleration <= 0.0)
+  {
     throw std::runtime_error("Lua rules: orbit transfer speed and acceleration must be positive.");
+  }
 
   lua_getfield(state, -1, "radius_fractions");
   requireTable(state, -1, "orbit.radius_fractions");
+
   for (std::uint8_t level = 1; level <= levelCount; ++level)
   {
     lua_geti(state, -1, level);
     const bool valid = lua_isnumber(state, -1);
     const double fraction = lua_tonumber(state, -1);
     lua_pop(state, 1);
+
     if (!valid || !std::isfinite(fraction) || fraction < 0.0 || fraction > 1.0)
+    {
       throw std::runtime_error("Lua rules: radius fractions must be between 0 and 1.");
+    }
+
     if (level > 1 && fraction >= radiusFractions[level - 2])
+    {
       throw std::runtime_error("Lua rules: orbit fractions must decrease toward the planet.");
+    }
+
     radiusFractions[level - 1] = fraction;
   }
+
   if (radiusFractions[0] != 1.0)
+  {
     throw std::runtime_error("Lua rules: orbit level 1 must lie on the influence boundary.");
+  }
+
   lua_pop(state, 2); // radius_fractions, orbit
   lua_pop(state, 1); // root
 
   lua_rawgeti(state, LUA_REGISTRYINDEX, runtime_->rulesReference);
   lua_getfield(state, -1, "ship_classes");
   requireTable(state, -1, "ship_classes");
+
   constexpr const char *names[] = {"small", "medium", "large"};
+
   for (std::size_t index = 0; index < std::size(names); ++index)
   {
     lua_getfield(state, -1, names[index]);
     requireTable(state, -1, names[index]);
     const double maxLevel = readNumber(state, -1, "max_orbit_level");
+
     if (std::floor(maxLevel) != maxLevel || maxLevel < 1.0 || maxLevel > levelCount)
+    {
       throw std::runtime_error(std::string("Lua rules: invalid max_orbit_level for '") + names[index] + "'.");
+    }
     maximumLevelByClass[index] = static_cast<std::uint8_t>(maxLevel);
     lua_pop(state, 1);
   }
+
   for (const auto &team : teams)
+  {
     if (
       team.startingOrbitLevel > levelCount || team.startingOrbitLevel > maximumLevelByClass[static_cast<std::size_t>(team.shipClass)])
+    {
       throw std::runtime_error("Lua rules: team starting orbit exceeds its ship limit.");
+    }
+  }
+
   if (playerDefaults.goalOrbitLevel > levelCount)
+  {
     throw std::runtime_error("Lua rules: player goal orbit exceeds the configured level count.");
+  }
+
   lua_pop(state, 2); // ship_classes, root
 
   lua_rawgeti(state, LUA_REGISTRYINDEX, runtime_->rulesReference);
@@ -107,9 +151,13 @@ GameRules::GameRules(const std::filesystem::path &scriptPath) : runtime_(std::ma
   thrustAcceleration = readNumber(state, -1, "thrust_acceleration");
   brakingAcceleration = readNumber(state, -1, "braking_acceleration");
   maximumAimLeadSeconds = readNumber(state, -1, "maximum_aim_lead_seconds");
+
   if (
     referenceGravitationalParameter <= 0.0 || thrustAcceleration <= 0.0 || brakingAcceleration <= 0.0 || maximumAimLeadSeconds <= 0.0)
+  {
     throw std::runtime_error("Lua rules: flight gravity and acceleration values must be positive.");
+  }
+
   lua_getfield(state, -1, "throttle_speed_multipliers");
   requireTable(state, -1, "flight.throttle_speed_multipliers");
   for (std::size_t index = 0; index < throttleSpeedMultipliers.size(); ++index)
@@ -118,8 +166,12 @@ GameRules::GameRules(const std::filesystem::path &scriptPath) : runtime_(std::ma
     const bool valid = lua_isnumber(state, -1);
     const double multiplier = lua_tonumber(state, -1);
     lua_pop(state, 1);
+
     if (!valid || !std::isfinite(multiplier) || multiplier <= 0.0 || (index > 0 && multiplier <= throttleSpeedMultipliers[index - 1]))
+    {
       throw std::runtime_error("Lua rules: throttle speed multipliers must be positive and increasing.");
+    }
+
     throttleSpeedMultipliers[index] = multiplier;
   }
   lua_settop(state, 0);
@@ -160,6 +212,7 @@ void GameRules::applyScenario(World &world) const
   world.ships.resize(shipCapacity);
   world.bases.resize(playerCapacity);
   world.torpedoes.resize(torpedoCapacity);
+
   for (std::size_t i = 0; i < practiceNames.size(); ++i)
   {
     Ship target = practiceShipDefaults;
@@ -176,14 +229,19 @@ void GameRules::applyScenario(World &world) const
 std::uint8_t GameRules::maximumLevel(ShipClass shipClass) const noexcept
 {
   const auto index = static_cast<std::size_t>(shipClass);
+
   return index < maximumLevelByClass.size() ? maximumLevelByClass[index] : 1;
 }
 
 double GameRules::orbitRadius(const Planet &planet, std::uint8_t level) const noexcept
 {
   if (level == 0 || level > levelCount)
+  {
     return 0.0;
+  }
+
   const double innerRadius = planet.radius + planet.parkingOrbitAltitude;
+
   return innerRadius + (planet.sphereOfInfluenceRadius - innerRadius) * radiusFractions[level - 1];
 }
 
@@ -191,8 +249,12 @@ double GameRules::speedLimit(std::uint8_t throttleLevel, double gravitationalPar
 {
   if (throttleLevel == 0 || throttleLevel > throttleSpeedMultipliers.size() || gravitationalParameter <= 0.0 ||
       sphereOfInfluenceRadius <= 0.0)
+  {
     return 0.0;
+  }
+
   const double referenceSpeed = std::sqrt(gravitationalParameter / sphereOfInfluenceRadius);
+
   return referenceSpeed * throttleSpeedMultipliers[throttleLevel - 1];
 }
 
@@ -208,17 +270,30 @@ AccelerationMode GameRules::approachThrottle(double distanceToCapture, double cu
   lua_pushnumber(state, thrustAcceleration);
   lua_pushnumber(state, brakingAcceleration);
   lua_pushnumber(state, deltaSeconds);
+
   if (lua_pcall(state, 7, 1, 0) != LUA_OK)
+  {
     throwLuaError(state, "Lua approach_throttle failed: ");
+  }
+
   const bool valid = lua_isinteger(state, -1);
   const lua_Integer action = lua_tointeger(state, -1);
   lua_settop(state, 0);
+
   if (!valid || action < -1 || action > 1)
+  {
     throw std::runtime_error("Lua rules: approach_throttle must return -1, 0, or 1.");
+  }
+
   if (action < 0)
+  {
     return AccelerationMode::Decelerate;
+  }
+
   if (action > 0)
+  {
     return AccelerationMode::Accelerate;
+  }
   return AccelerationMode::Cruise;
 }
 
@@ -241,8 +316,11 @@ Vec3 GameRules::weaponAimDirection(const Vec3 &relativePosition, const Vec3 &rel
   const Vec3 direction{lua_tonumber(state, -3), lua_tonumber(state, -2), lua_tonumber(state, -1)};
   lua_settop(state, 0);
   const double length = direction.length();
+
   if (!valid || !std::isfinite(length) || length <= 1e-9)
+  {
     throw std::runtime_error("Lua rules: weapon_aim_direction must return a non-zero vector.");
+  }
   return direction * (1.0 / length);
 }
 
@@ -253,13 +331,20 @@ double GameRules::transferRadialStep(double currentRadius, double targetRadius, 
   lua_pushnumber(state, currentRadius);
   lua_pushnumber(state, targetRadius);
   lua_pushnumber(state, deltaSeconds);
+
   if (lua_pcall(state, 3, 1, 0) != LUA_OK)
+  {
     throwLuaError(state, "Lua orbit_transfer_step failed: ");
+  }
+
   const bool valid = lua_isnumber(state, -1);
   const double step = lua_tonumber(state, -1);
   lua_settop(state, 0);
+
   if (!valid || !std::isfinite(step))
+  {
     throw std::runtime_error("Lua rules: orbit_transfer_step must return a finite number.");
+  }
   return step;
 }
 

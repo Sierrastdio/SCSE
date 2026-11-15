@@ -20,6 +20,7 @@ Vec3 &Vec3::operator+=(const Vec3 &other) noexcept
   x += other.x;
   y += other.y;
   z += other.z;
+
   return *this;
 }
 
@@ -28,6 +29,7 @@ Vec3 &Vec3::operator-=(const Vec3 &other) noexcept
   x -= other.x;
   y -= other.y;
   z -= other.z;
+
   return *this;
 }
 
@@ -40,54 +42,63 @@ Vec3 operator*(Vec3 value, double scalar) noexcept
   value.x *= scalar;
   value.y *= scalar;
   value.z *= scalar;
+
   return value;
 }
 
 const Player *World::findPlayer(PlayerId id) const noexcept
 {
   const auto found = std::ranges::find_if(playerSlots, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == playerSlots.end() ? nullptr : &**found;
 }
 
 Player *World::findPlayer(PlayerId id) noexcept
 {
   const auto found = std::ranges::find_if(playerSlots, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == playerSlots.end() ? nullptr : &**found;
 }
 
 const Ship *World::findShip(EntityId id) const noexcept
 {
   const auto found = std::ranges::find_if(ships, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == ships.end() ? nullptr : &**found;
 }
 
 Ship *World::findShip(EntityId id) noexcept
 {
   const auto found = std::ranges::find_if(ships, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == ships.end() ? nullptr : &**found;
 }
 
 Base *World::findBase(EntityId id) noexcept
 {
   const auto found = std::ranges::find_if(bases, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == bases.end() ? nullptr : &**found;
 }
 
 const Base *World::findBase(EntityId id) const noexcept
 {
   const auto found = std::ranges::find_if(bases, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == bases.end() ? nullptr : &**found;
 }
 
 Torpedo *World::findTorpedo(EntityId id) noexcept
 {
   const auto found = std::ranges::find_if(torpedoes, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == torpedoes.end() ? nullptr : &**found;
 }
 
 const Torpedo *World::findTorpedo(EntityId id) const noexcept
 {
   const auto found = std::ranges::find_if(torpedoes, [id](const auto &slot) { return slot && slot->id == id; });
+
   return found == torpedoes.end() ? nullptr : &**found;
 }
 
@@ -134,6 +145,7 @@ World makeInitialWorld(std::optional<std::uint64_t> seed)
 {
   World world;
   world.randomSeedOverride = seed;
+
   return world;
 }
 
@@ -146,24 +158,41 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
   }
 
   const auto playerSlot = std::ranges::find_if(world.playerSlots, [](const auto &slot) { return !slot; });
+
   const auto baseSlot = std::ranges::find_if(world.bases, [](const auto &slot) { return !slot; });
+
   std::vector<std::optional<Ship> *> shipSlots;
+
   std::vector<std::optional<Torpedo> *> torpedoSlots;
+
   for (auto &slot : world.ships)
+  {
     if (!slot && shipSlots.size() < world.shipsPerPlayer)
+    {
       shipSlots.push_back(&slot);
+    }
+  }
+
   for (auto &slot : world.torpedoes)
+  {
     if (!slot && torpedoSlots.size() < world.shipsPerPlayer)
+    {
       torpedoSlots.push_back(&slot);
+    }
+  }
 
   if (playerSlot == world.playerSlots.end() || shipSlots.size() != world.shipsPerPlayer ||
       torpedoSlots.size() != world.shipsPerPlayer || baseSlot == world.bases.end())
+  {
     return std::nullopt;
+  }
 
   const auto playerIndex = static_cast<std::size_t>(playerSlot - world.playerSlots.begin());
 
   if (world.playerIdStart > kNoPlayer - 1 - playerIndex)
+  {
     return std::nullopt;
+  }
 
   const auto id = static_cast<PlayerId>(world.playerIdStart + playerIndex);
   {
@@ -190,7 +219,9 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     const auto startOrbit = teamSettings.startingOrbitLevel;
 
     if (startOrbit > 0)
+    {
       spawnOffset = spawnDirection * world.planets[planetId].orbitLevelRadii[startOrbit - 1];
+    }
 
     const Vec3 spawn = world.planets[planetId].position + spawnOffset;
 
@@ -213,9 +244,12 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     player.selectedObject = player.shipId;
 
     const Vec3 axis = std::abs(spawnDirection.z) < 0.9 ? Vec3{0.0, 0.0, 1.0} : Vec3{0.0, 1.0, 0.0};
+
     Vec3 tangent{axis.y * spawnDirection.z - axis.z * spawnDirection.y, axis.z * spawnDirection.x - axis.x * spawnDirection.z,
       axis.x * spawnDirection.y - axis.y * spawnDirection.x};
+
     tangent = tangent * (1.0 / tangent.length());
+
     const double orbitRadius = startOrbit > 0 ? world.planets[planetId].orbitLevelRadii[startOrbit - 1] : 0.0;
     const double orbitSpeed = startOrbit > 0 ? std::sqrt(world.planets[planetId].gravitationalParameter / orbitRadius) : 0.0;
 
@@ -240,12 +274,15 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
 
         Vec3 shipTangent{
           axis.y * radial.z - axis.z * radial.y, axis.z * radial.x - axis.x * radial.z, axis.x * radial.y - axis.y * radial.x};
+
         shipTangent = shipTangent * (1.0 / shipTangent.length());
         ship.velocity = shipTangent * orbitSpeed;
         ship.speed = ship.warp = orbitSpeed;
       }
       else
+      {
         ship.position = spawn + tangent * (50.0 * static_cast<double>(index));
+      }
 
       Torpedo torpedo;
       torpedo.id = ship.torpedoId;
@@ -266,6 +303,7 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
 
     world.playerSlots[playerIndex] = std::move(player);
     *baseSlot = base;
+
     return id;
   }
   return std::nullopt;
@@ -276,22 +314,36 @@ void removePlayer(World &world, PlayerId playerId)
   auto found = std::ranges::find_if(world.playerSlots, [playerId](const auto &slot) { return slot && slot->id == playerId; });
 
   if (found == world.playerSlots.end())
+  {
     return;
+  }
 
   const auto player = **found;
   found->reset();
 
   for (auto &slot : world.ships)
+  {
     if (slot && slot->owner == playerId && slot->playerControlled)
+    {
       slot.reset();
+    }
+  }
 
   for (auto &slot : world.bases)
+  {
     if (slot && slot->id == player.baseId)
+    {
       slot.reset();
+    }
+  }
 
   for (auto &slot : world.torpedoes)
+  {
     if (slot && slot->owner == playerId)
+    {
       slot.reset();
+    }
+  }
 }
 
 } // namespace spasim

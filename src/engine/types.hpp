@@ -49,12 +49,14 @@ enum class ObjectKind : std::uint8_t
   Base,
   Torpedo
 };
+
 enum class AccelerationMode : std::uint8_t
 {
   Decelerate,
   Cruise,
   Accelerate
 };
+
 enum class ShipClass : std::uint8_t
 {
   Small,

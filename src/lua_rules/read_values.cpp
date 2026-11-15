@@ -20,16 +20,24 @@ double readNumber(lua_State *state, int tableIndex, const char *key)
 void requireTable(lua_State *state, int index, const char *description)
 {
   if (!lua_istable(state, index))
+  {
     throw std::runtime_error(std::string("Lua rules: expected table for ") + description);
+  }
 }
 
 int cacheFunction(lua_State *state, int rulesReference, const char *name)
 {
   lua_rawgeti(state, LUA_REGISTRYINDEX, rulesReference);
+
   lua_getfield(state, -1, name);
+
   if (!lua_isfunction(state, -1))
+  {
     throw std::runtime_error(std::string("Lua rules: function '") + name + "' is required.");
+  }
+
   lua_remove(state, -2);
+
   return luaL_ref(state, LUA_REGISTRYINDEX);
 }
 
@@ -45,12 +53,20 @@ void openRuleLibraries(lua_State *state)
 std::string readString(lua_State *state, int tableIndex, const char *key)
 {
   lua_getfield(state, tableIndex, key);
+
   const bool valid = lua_type(state, -1) == LUA_TSTRING;
+
   const char *value = valid ? lua_tostring(state, -1) : nullptr;
+
   std::string result = value ? value : "";
+
   lua_pop(state, 1);
+
   if (!valid || result.empty())
+  {
     throw std::runtime_error(std::string("Lua rules: invalid string field '") + key + "'.");
+  }
+
   return result;
 }
 
@@ -77,7 +93,9 @@ Vec3 readVector(lua_State *state, int tableIndex, const char *key)
     lua_pop(state, 1);
 
     if (!valid)
+    {
       throw std::runtime_error(std::string("Lua rules: invalid vector '") + key + "'.");
+    }
   }
   lua_pop(state, 1);
   return result;
@@ -92,22 +110,33 @@ bool readBoolean(lua_State *state, int tableIndex, const char *key)
   const bool value = lua_toboolean(state, -1) != 0;
 
   lua_pop(state, 1);
+
   if (!valid)
+  {
     throw std::runtime_error(std::string("Lua rules: invalid boolean field '") + key + "'.");
+  }
+
   return value;
 }
 
 ShipClass readShipClass(lua_State *state, int tableIndex, const char *key)
 {
   const auto value = readString(state, tableIndex, key);
+
   if (value == "small")
+  {
     return ShipClass::Small;
+  }
 
   if (value == "medium")
+  {
     return ShipClass::Medium;
+  }
 
   if (value == "large")
+  {
     return ShipClass::Large;
+  }
 
   throw std::runtime_error(std::string("Lua rules: invalid ship class '") + value + "'.");
 }
@@ -115,14 +144,21 @@ ShipClass readShipClass(lua_State *state, int tableIndex, const char *key)
 AccelerationMode readAcceleration(lua_State *state, int tableIndex, const char *key)
 {
   const auto value = readString(state, tableIndex, key);
+
   if (value == "decelerate")
+  {
     return AccelerationMode::Decelerate;
+  }
 
   if (value == "cruise")
+  {
     return AccelerationMode::Cruise;
+  }
 
   if (value == "accelerate")
+  {
     return AccelerationMode::Accelerate;
+  }
 
   throw std::runtime_error(std::string("Lua rules: invalid acceleration mode '") + value + "'.");
 }
@@ -136,7 +172,9 @@ void readShipDefaults(lua_State *state, int index, Ship &ship)
   const double throttleLevel = readNumber(state, index, "throttle_level");
 
   if (std::floor(throttleLevel) != throttleLevel || throttleLevel < 1.0 || throttleLevel > 4.0)
+  {
     throw std::runtime_error("Lua rules: ship throttle_level must be from 1 to 4.");
+  }
 
   ship.throttleLevel = static_cast<std::uint8_t>(throttleLevel);
 
@@ -170,8 +208,9 @@ void readShipDefaults(lua_State *state, int index, Ship &ship)
   if (ship.turnRateDegreesPerSecond < 0.0 || ship.throttleLevel == 0 || ship.throttleLevel > 4 || ship.collisionRadius <= 0.0 ||
       ship.speed < 0.0 || ship.warp < 0.0 || ship.resources.energy < 0.0 || ship.resources.rawMaterial < 0.0 ||
       ship.combat.hull < 0.0 || ship.combat.hullDamage < 0.0 || ship.combat.shields < 0.0)
-
+  {
     throw std::runtime_error("Lua rules: invalid ship defaults.");
+  }
 }
 
 void requireDenseId(lua_State *state, int tableIndex, std::size_t expected)
@@ -179,7 +218,9 @@ void requireDenseId(lua_State *state, int tableIndex, std::size_t expected)
   const double id = readNumber(state, tableIndex, "id");
 
   if (std::floor(id) != id || id != static_cast<double>(expected))
+  {
     throw std::runtime_error("Lua rules: scenario IDs must match their zero-based array slot.");
+  }
 }
 
 void throwLuaError(lua_State *state, const std::string &prefix)
