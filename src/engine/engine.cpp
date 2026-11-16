@@ -327,6 +327,36 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand &command
       {
         return detail::executeAction(world_, *player, *ship, action, gameRules_);
       }
+      else if constexpr (std::is_same_v<Action, SetWeaponProfile>)
+      {
+        if (action.weapon >= world_.weapons.size())
+        {
+          return {CommandStatus::Invalid, "Weapon profile is out of range."};
+        }
+
+        const auto selection = selectedShipIds(*player);
+
+        for (const auto selectedId : selection)
+        {
+          if (!isControlledShip(world_.findShip(selectedId), playerId))
+          {
+            return {CommandStatus::Invalid, "A selected ship is no longer under your control."};
+          }
+        }
+
+        for (const auto selectedId : selection)
+        {
+          auto *selectedShip = world_.findShip(selectedId);
+          const auto result = detail::executeAction(world_, *player, *selectedShip, action);
+
+          if (!result)
+          {
+            return result;
+          }
+        }
+
+        return {CommandStatus::Applied, "Weapon profile applied to " + std::to_string(selection.size()) + " selected ship(s)."};
+      }
       else
       {
         return detail::executeAction(world_, *player, *ship, action);

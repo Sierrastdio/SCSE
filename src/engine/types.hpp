@@ -118,6 +118,7 @@ struct Ship
   std::uint8_t throttleLevel{};
   Resources resources{};
   CombatState combat{};
+  WeaponId weapon{};
   double collisionRadius{};
   std::optional<PlanetId> orbitingPlanet;
   std::uint8_t orbitLevel{};

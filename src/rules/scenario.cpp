@@ -23,13 +23,14 @@ Ship makeShipDefaults(double turnRate, double skill)
   return ship;
 }
 
-Team makeTeam(TeamId id, const char *name)
+Team makeTeam(TeamId id, const char *name, const Vec3 &baseOffset)
 {
   Team team;
   team.id = id;
   team.homePlanet = static_cast<PlanetId>(id);
   team.shipClass = ShipClass::Small;
   team.name = name;
+  team.baseOffset = baseOffset;
   team.spawnRadius = 70.0;
   team.spawnVerticalMinimum = -1.0;
   team.spawnVerticalMaximum = 1.0;
@@ -78,6 +79,7 @@ GameRules::GameRules()
   playerDefaults.weapon = defaultWeapon;
 
   playerShipDefaults = makeShipDefaults(30.0, 1.0);
+  playerShipDefaults.weapon = defaultWeapon;
   practiceShipDefaults = makeShipDefaults(0.0, 0.0);
 
   baseDefaults.collisionRadius = 50.0;
@@ -89,20 +91,20 @@ GameRules::GameRules()
   torpedoLifeSeconds = 60.0;
   torpedoCollisionRadius = 2.0;
 
-  teams = {
-    makeTeam(0, "team1"),
-    makeTeam(1, "team2"),
-    makeTeam(2, "team3"),
-    makeTeam(3, "team4"),
-    makeTeam(4, "team5"),
-  };
-
   planets = {
     makePlanet(0, "Planet 1", {-1000.0, 0.0, 0.0}, 30.0, 2000.0),
     makePlanet(1, "Planet 2", {1000.0, 0.0, 0.0}, 30.0, 2000.0),
     makePlanet(2, "Planet 3", {0.0, 1000.0, 0.0}, 30.0, 2000.0),
     makePlanet(3, "Planet 4", {0.0, 0.0, 1000.0}, 30.0, 2000.0),
     makePlanet(4, "Planet 5", {0.0, 1000.0, 500.0}, 50.0, 20000.0),
+  };
+
+  teams = {
+    makeTeam(0, "team1", {90.0, 0.0, 0.0}),
+    makeTeam(1, "team2", {90.0, 0.0, 0.0}),
+    makeTeam(2, "team3", {90.0, 0.0, 0.0}),
+    makeTeam(3, "team4", {90.0, 0.0, 0.0}),
+    makeTeam(4, "team5", {110.0, 0.0, 0.0}),
   };
 
   weapons = {
@@ -180,7 +182,8 @@ GameRules::GameRules()
   for (std::size_t i = 0; i < teams.size(); ++i)
   {
     const auto &team = teams[i];
-    if (team.id != i || team.homePlanet >= planets.size() || team.startingOrbitLevel > levelCount)
+    if (team.id != i || team.homePlanet >= planets.size() || team.startingOrbitLevel > levelCount
+        || !std::isfinite(team.baseOffset.x) || !std::isfinite(team.baseOffset.y) || !std::isfinite(team.baseOffset.z))
     {
       throw std::logic_error("The built-in scenario has invalid team settings.");
     }

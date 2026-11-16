@@ -17,12 +17,16 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
         || (torpedo.team < world.teams.size() && slot->team < world.teams.size()
             && std::ranges::find(world.teams[torpedo.team].allies, slot->team) != world.teams[torpedo.team].allies.end()
             && !world.friendlyFire))
+    {
       continue;
+    }
 
     const double distance = slot->position.distanceTo(torpedo.position);
 
     if (distance > radius)
+    {
       continue;
+    }
 
     const double damage = torpedo.damage * std::exp(-distance / radius);
 
@@ -88,7 +92,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     return {CommandStatus::Invalid, "Select a target first."};
   }
 
-  const auto weaponIndex = static_cast<std::size_t>(player.weapon);
+  const auto weaponIndex = static_cast<std::size_t>(ship.weapon);
 
   if (weaponIndex >= world.weapons.size())
   {
@@ -247,7 +251,7 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const DetonateTo
   return {CommandStatus::Applied, "Torpedo detonated."};
 }
 
-CommandResult executeAction(World &world, Player &player, Ship &, const SetWeaponProfile &action)
+CommandResult executeAction(World &world, Player &player, Ship &ship, const SetWeaponProfile &action)
 {
   if (action.weapon >= world.weapons.size())
   {
@@ -255,6 +259,7 @@ CommandResult executeAction(World &world, Player &player, Ship &, const SetWeapo
   }
 
   player.weapon = action.weapon;
+  ship.weapon = action.weapon;
 
   return {CommandStatus::Applied, "Weapon selected."};
 }

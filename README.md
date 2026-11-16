@@ -57,7 +57,7 @@ Weapon numbering follows the source roster: 1 Aggstroms, 2 Fouriers, 3 Diffracti
 
 ### Scenario configuration
 
-Edit the scenario data in `src/rules/scenario.cpp` to change world timing and seed, players per team, ships per player, player/ship/base/torpedo defaults, team names and home planets, ship classes and spawn/orbit settings, planet coordinates/gravity/orbit ranges/starting values, weapon profiles, practice targets, alliances, and ID starting values. Each weapon profile includes its own damage, range, projectile speed, lead limit, and maximum horizontal/vertical firing-angle errors. These are maximum deviations from the ship's facing; 180 degrees permits any angle on that axis. Team, planet, and weapon IDs must remain zero-based and contiguous. Rebuild after changing values.
+Edit the scenario data in `src/rules/scenario.cpp` to change world timing and seed, players per team, ships per player, player/ship/base/torpedo defaults, team names and home planets, ship classes and spawn/orbit settings, team base placement (`Team::baseOffset`, relative to the team's home planet), planet coordinates/gravity/orbit ranges/starting values, weapon profiles, practice targets, alliances, and ID starting values. Base health, shields, resources, and collision radius are set in `baseDefaults`; each player's base is created at its team's configured home-planet offset. Each weapon profile includes its own damage, range, projectile speed, lead limit, and maximum horizontal/vertical firing-angle errors. These are maximum deviations from the ship's facing; 180 degrees permits any angle on that axis. Team, planet, and weapon IDs must remain zero-based and contiguous. Rebuild after changing values.
 
 ## Debug renderer
 

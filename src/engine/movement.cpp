@@ -262,7 +262,7 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
         targetVelocity = targetTorpedo->velocity;
       }
 
-      const auto weaponIndex = static_cast<std::size_t>(player->weapon);
+      const auto weaponIndex = static_cast<std::size_t>(ship.weapon);
 
       const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
       const Vec3 aimDirection = rules.weaponAimDirection(relativePosition, targetVelocity,

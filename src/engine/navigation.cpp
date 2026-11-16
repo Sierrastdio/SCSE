@@ -197,7 +197,7 @@ CommandResult executeAction(World &, Player &, Ship &ship, const SetShipClass &a
   return {CommandStatus::Applied, std::string("Ship class set to ") + toString(ship.shipClass) + "."};
 }
 
-CommandResult executeAction(World &world, Player &player, Ship &ship, const SelectTarget &action, const GameRules &rules)
+CommandResult executeAction(World &world, Player &, Ship &ship, const SelectTarget &action, const GameRules &rules)
 {
   if (action.target.kind != Target::Kind::Entity)
   {
@@ -229,7 +229,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Sele
     targetVelocity = targetTorpedo->velocity;
   }
 
-  const auto weaponIndex = static_cast<std::size_t>(player.weapon);
+  const auto weaponIndex = static_cast<std::size_t>(ship.weapon);
 
   const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
   const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity,

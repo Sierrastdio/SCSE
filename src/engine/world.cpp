@@ -261,6 +261,7 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
       ship.team = team;
       ship.name = index == 0 ? player.callSign : player.callSign + " " + std::to_string(index + 1);
       ship.shipClass = teamSettings.shipClass;
+      ship.weapon = world.defaultWeapon;
       ship.torpedoId = torpedoIds[index];
       ship.playerControlled = true;
 

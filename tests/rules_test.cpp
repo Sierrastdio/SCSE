@@ -2,6 +2,7 @@
 #include "engine/world.hpp"
 #include "rules/game_rules.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
@@ -131,6 +132,7 @@ int main()
     expect(playerId.has_value(), "Could not create combat test player.");
     auto *player = combatWorld.findPlayer(*playerId);
     auto *shooter = player ? combatWorld.findShip(player->shipId) : nullptr;
+    auto *playerBase = player ? combatWorld.findBase(player->baseId) : nullptr;
     spasim::Ship *target{};
     for (auto &slot : combatWorld.ships)
     {
@@ -140,7 +142,13 @@ int main()
         break;
       }
     }
-    expect(player && shooter && target, "Combat test entities are missing.");
+    expect(player && shooter && playerBase && target, "Combat test entities are missing.");
+    const auto &homePlanet = combatWorld.planets[combatWorld.teams[player->team].homePlanet];
+    expect(playerBase->homePlanet == homePlanet.id, "Player base was not assigned to its team's home planet.");
+    expectNear(playerBase->position.distanceTo(homePlanet.position), combatWorld.teams[player->team].baseOffset.length(), 1e-12,
+      "Player base did not use its scenario-configured home-planet offset.");
+    expect(playerBase->position.distanceTo(homePlanet.position) > homePlanet.radius + playerBase->collisionRadius,
+      "Player base overlaps its home planet.");
     shooter->position = {};
     shooter->orientation = {-90.0, 0.0};
     shooter->resources.energy = 10000.0;
@@ -175,6 +183,71 @@ int main()
       "Could not select the fourth weapon profile.");
     expect(simulation.execute(*playerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
       "Vertical firing limit did not accept its configured boundary.");
+
+    spasim::Simulation loadoutSimulation{spasim::makeInitialWorld()};
+    auto &loadoutWorld = loadoutSimulation.world();
+    const auto loadoutPlayerId = spasim::joinTeam(loadoutWorld, 0, "Loadout test");
+    auto *loadoutPlayer = loadoutPlayerId ? loadoutWorld.findPlayer(*loadoutPlayerId) : nullptr;
+    auto *firstShip = loadoutPlayer && !loadoutPlayer->selectedShips.empty()
+      ? loadoutWorld.findShip(loadoutPlayer->selectedShips[0])
+      : nullptr;
+    auto *secondShip = loadoutPlayer && loadoutPlayer->selectedShips.size() > 1
+      ? loadoutWorld.findShip(loadoutPlayer->selectedShips[1])
+      : nullptr;
+    spasim::Ship *loadoutTarget{};
+    for (auto &slot : loadoutWorld.ships)
+    {
+      if (slot && slot->name == "Practice target Fouriers")
+      {
+        loadoutTarget = &*slot;
+        break;
+      }
+    }
+
+    expect(loadoutPlayerId && firstShip && secondShip && loadoutTarget, "Weapon loadout test entities are missing.");
+    firstShip->position = {};
+    secondShip->position = {0.0, 5.0, 0.0};
+    firstShip->orientation = {-90.0, 0.0};
+    secondShip->orientation = {-90.0, 0.0};
+    firstShip->resources.energy = 10000.0;
+    secondShip->resources.energy = 10000.0;
+    loadoutTarget->position = {100.0, 0.0, 0.0};
+    loadoutTarget->velocity = {};
+    loadoutWorld.weapons[0].aim.maximumHorizontalFiringAngleDegrees = 180.0;
+    loadoutWorld.weapons[1].aim.maximumHorizontalFiringAngleDegrees = 180.0;
+    expect(loadoutSimulation.execute(*loadoutPlayerId,
+             spasim::SelectTarget{{spasim::Target::Kind::Entity, loadoutTarget->id}}).status == spasim::CommandStatus::Applied,
+      "Could not assign the loadout test target.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SelectShips{{firstShip->id}}).status == spasim::CommandStatus::Applied,
+      "Could not select the first loadout test ship.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SetWeaponProfile{0}).status == spasim::CommandStatus::Applied,
+      "Could not assign the first ship's weapon.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SelectShips{{secondShip->id}}).status == spasim::CommandStatus::Applied,
+      "Could not select the second loadout test ship.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SetWeaponProfile{1}).status == spasim::CommandStatus::Applied,
+      "Could not assign the second ship's weapon.");
+    expect(firstShip->weapon == 0 && secondShip->weapon == 1, "Individual weapon profiles were not retained per ship.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId,
+             spasim::SelectShips{{firstShip->id, secondShip->id}}).status == spasim::CommandStatus::Applied,
+      "Could not select both loadout test ships.");
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
+      "Ships with individual weapon profiles could not fire together.");
+    expect(loadoutWorld.weaponProjectiles.size() == 2, "Group fire did not launch a projectile from each ship.");
+
+    const auto firstProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+      [firstShip](const spasim::WeaponProjectile &projectile) { return projectile.shooter == firstShip->id; });
+    const auto secondProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+      [secondShip](const spasim::WeaponProjectile &projectile) { return projectile.shooter == secondShip->id; });
+    expect(firstProjectile != loadoutWorld.weaponProjectiles.end() && secondProjectile != loadoutWorld.weaponProjectiles.end(),
+      "Group fire did not preserve each ship's weapon profile.");
+    expectNear(firstProjectile->speed, loadoutWorld.weapons[0].projectileSpeed, 1e-12,
+      "First ship fired with another ship's weapon speed.");
+    expectNear(firstProjectile->damage, loadoutWorld.weapons[0].damage, 1e-12,
+      "First ship fired with another ship's weapon damage.");
+    expectNear(secondProjectile->speed, loadoutWorld.weapons[1].projectileSpeed, 1e-12,
+      "Second ship fired with another ship's weapon speed.");
+    expectNear(secondProjectile->damage, loadoutWorld.weapons[1].damage, 1e-12,
+      "Second ship fired with another ship's weapon damage.");
   }
   catch (const std::exception &error)
   {
