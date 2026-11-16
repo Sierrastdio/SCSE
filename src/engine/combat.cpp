@@ -36,6 +36,44 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
   }
 }
 
+double dot(const Vec3 &lhs, const Vec3 &rhs) noexcept { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; }
+
+void applyProjectileImpact(World &world, WeaponProjectile &projectile)
+{
+  if (auto *torpedo = world.findTorpedo(projectile.target))
+  {
+    torpedo->energy = std::max(0.0, torpedo->energy - projectile.damage);
+
+    if (torpedo->energy == 0.0)
+    {
+      torpedo->exists = false;
+    }
+
+    return;
+  }
+
+  if (auto *targetCombat = combatState(world, Target{Target::Kind::Entity, projectile.target}))
+  {
+    const auto targetTeam = teamOf(world, projectile.target);
+
+    if (targetTeam && *targetTeam < world.teams.size() && projectile.team < world.teams.size()
+        && std::ranges::find(world.teams[projectile.team].allies, *targetTeam) != world.teams[projectile.team].allies.end()
+        && !world.friendlyFire)
+    {
+      return;
+    }
+
+    const double shieldDamage = std::min(targetCombat->shields, projectile.damage);
+    targetCombat->shields -= shieldDamage;
+    targetCombat->hullDamage = std::min(targetCombat->hull, targetCombat->hullDamage + (projectile.damage - shieldDamage));
+
+    if (targetCombat->hullDamage >= targetCombat->hull)
+    {
+      targetCombat->destroyed = true;
+    }
+  }
+}
+
 } // namespace
 
 CommandResult executeAction(World &world, Player &player, Ship &ship, const FirePhasor &action, const GameRules &rules)
@@ -100,43 +138,40 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     return {CommandStatus::Invalid, "Target is outside the weapon's horizontal or vertical firing limits."};
   }
 
-  if (auto *torpedo = world.findTorpedo(targetId))
+  Vec3 targetVelocity{};
+
+  if (const auto *targetShip = world.findShip(targetId))
   {
-    if (distance < player.phasorDiameter + 5.0)
-    {
-      ship.resources.energy -= cost;
-      torpedo->energy = std::max(0.0, torpedo->energy - action.power);
-
-      if (torpedo->energy == 0.0)
-      {
-        torpedo->exists = false;
-      }
-
-      return {CommandStatus::Applied, "Torpedo intercepted."};
-    }
+    targetVelocity = targetShip->velocity;
+  }
+  else if (const auto *targetTorpedo = world.findTorpedo(targetId))
+  {
+    targetVelocity = targetTorpedo->velocity;
   }
 
-  auto *targetCombat = combatState(world, Target{Target::Kind::Entity, targetId});
-
-  if (!targetCombat)
+  if (weapon.projectileSpeed <= 1e-9)
   {
-    return {CommandStatus::Invalid, "Selected target cannot take weapon damage."};
+    ship.resources.energy -= cost;
+    WeaponProjectile hit{.target = targetId, .team = ship.team, .damage = weapon.damage * action.power};
+    applyProjectileImpact(world, hit);
+    return {CommandStatus::Applied, "Target hit."};
   }
 
+  const Vec3 aim = rules.weaponAimDirection(direction, targetVelocity - ship.velocity, weapon.projectileSpeed, weapon.aim);
   ship.resources.energy -= cost;
 
-  const double damage = weapon.damage * action.power;
-  const double shieldDamage = std::min(targetCombat->shields, damage);
-
-  targetCombat->shields -= shieldDamage;
-  targetCombat->hullDamage = std::min(targetCombat->hull, targetCombat->hullDamage + (damage - shieldDamage));
-
-  if (targetCombat->hullDamage >= targetCombat->hull)
-  {
-    targetCombat->destroyed = true;
-  }
-
-  return {CommandStatus::Applied, targetCombat->destroyed ? "Target destroyed." : "Target hit."};
+  world.weaponProjectiles.push_back({.id = world.nextEntityId++,
+    .shooter = ship.id,
+    .target = targetId,
+    .team = ship.team,
+    .position = ship.position,
+    .velocity = ship.velocity + aim * weapon.projectileSpeed,
+    .speed = weapon.projectileSpeed,
+    .damage = weapon.damage * action.power,
+    .collisionRadius = std::max(player.phasorDiameter * 0.5, 0.1),
+    .remainingRange = weapon.range,
+    .explosive = weapon.explosive});
+  return {CommandStatus::Applied, "Weapon projectile launched."};
 }
 
 CommandResult executeAction(World &world, Player &player, Ship &ship, const FireTorpedo &action)
@@ -280,6 +315,78 @@ void updateTorpedoes(World &world)
     slot->exists = false;
     slot->detonated = true;
   }
+}
+
+void updateWeaponProjectiles(World &world)
+{
+  const double dt = world.fixedStepSeconds;
+  std::erase_if(world.weaponProjectiles, [&](WeaponProjectile &projectile) {
+    const Vec3 *targetPosition = positionOf(world, Target{Target::Kind::Entity, projectile.target});
+
+    if (!targetPosition || dt <= 0.0 || projectile.remainingRange <= 0.0 || projectile.speed <= 1e-9)
+    {
+      return true;
+    }
+
+    Vec3 targetVelocity{};
+    double targetRadius{};
+
+    if (const auto *targetShip = world.findShip(projectile.target))
+    {
+      if (!targetShip->exists || targetShip->combat.destroyed)
+      {
+        return true;
+      }
+
+      targetVelocity = targetShip->velocity;
+      targetRadius = targetShip->collisionRadius;
+    }
+    else if (const auto *targetBase = world.findBase(projectile.target))
+    {
+      if (!targetBase->exists || targetBase->combat.destroyed)
+      {
+        return true;
+      }
+
+      targetRadius = targetBase->collisionRadius;
+    }
+    else if (const auto *targetTorpedo = world.findTorpedo(projectile.target))
+    {
+      if (!targetTorpedo->exists)
+      {
+        return true;
+      }
+
+      targetVelocity = targetTorpedo->velocity;
+      targetRadius = targetTorpedo->collisionRadius;
+    }
+    else
+    {
+      return true;
+    }
+
+    const double stepSeconds = std::min(dt, projectile.remainingRange / projectile.speed);
+    const Vec3 projectileStep = projectile.velocity * stepSeconds;
+    const Vec3 relativeStart = projectile.position - *targetPosition;
+    const Vec3 relativeStep = projectileStep - targetVelocity * stepSeconds;
+    const double relativeStepSquared = relativeStep.lengthSquared();
+    const double hitFraction = relativeStepSquared > 1e-12
+      ? std::clamp(-dot(relativeStart, relativeStep) / relativeStepSquared, 0.0, 1.0)
+      : 0.0;
+    const Vec3 closestOffset = relativeStart + relativeStep * hitFraction;
+    const double hitRadius = projectile.collisionRadius + targetRadius;
+
+    if (closestOffset.lengthSquared() <= hitRadius * hitRadius)
+    {
+      applyProjectileImpact(world, projectile);
+      return true;
+    }
+
+    projectile.position += projectileStep;
+    projectile.remainingRange -= projectile.speed * stepSeconds;
+
+    return projectile.remainingRange <= 0.0;
+  });
 }
 
 } // namespace spasim::detail

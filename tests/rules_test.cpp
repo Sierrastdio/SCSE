@@ -75,6 +75,56 @@ int main()
     const auto shortLeadAim = rules.weaponAimDirection({100.0, 0.0, 0.0}, {0.0, 10.0, 0.0}, 20.0, shortLead);
     expect(shortLeadAim.y < interceptAim.y, "Weapon-specific lead setting was ignored.");
 
+    spasim::Simulation projectileSimulation{spasim::makeInitialWorld()};
+    auto &projectileWorld = projectileSimulation.world();
+    const auto projectilePlayerId = spasim::joinTeam(projectileWorld, 0, "Projectile test");
+    expect(projectilePlayerId.has_value(), "Could not create projectile test player.");
+    auto *projectilePlayer = projectileWorld.findPlayer(*projectilePlayerId);
+    auto *projectileShooter = projectilePlayer ? projectileWorld.findShip(projectilePlayer->shipId) : nullptr;
+    spasim::Ship *projectileTarget{};
+    for (auto &slot : projectileWorld.ships)
+    {
+      if (slot && slot->name == "Practice target Fouriers")
+      {
+        projectileTarget = &*slot;
+        break;
+      }
+    }
+    expect(projectileShooter && projectileTarget, "Projectile test entities are missing.");
+    projectileShooter->position = {};
+    projectileShooter->velocity = {};
+    projectileShooter->orientation = {};
+    projectileShooter->resources.energy = 10000.0;
+    projectileTarget->position = {100.0, 0.0, 0.0};
+    projectileTarget->velocity = {};
+    projectileWorld.weapons[0].projectileSpeed = 10.0;
+    projectileWorld.weapons[0].aim.maximumHorizontalFiringAngleDegrees = 180.0;
+    projectileWorld.weapons[0].aim.maximumVerticalFiringAngleDegrees = 180.0;
+    expect(projectileSimulation.execute(*projectilePlayerId,
+             spasim::SelectTarget{{spasim::Target::Kind::Entity, projectileTarget->id}}).status
+        == spasim::CommandStatus::Applied,
+      "Could not select the projectile test target.");
+    const double initialShields = projectileTarget->combat.shields;
+    expect(projectileSimulation.execute(*projectilePlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
+      "Weapon projectile did not launch.");
+    expectNear(projectileTarget->combat.shields, initialShields, 1e-12, "Weapon damage was applied before projectile impact.");
+    expect(projectileWorld.weaponProjectiles.size() == 1, "Firing did not create an in-flight weapon projectile.");
+
+    for (int step = 0; step < 4; ++step)
+    {
+      projectileSimulation.step();
+    }
+
+    expectNear(projectileTarget->combat.shields, initialShields, 1e-12, "Weapon damage was applied before projectile arrival.");
+
+    for (int step = 0; step < 120 && !projectileWorld.weaponProjectiles.empty(); ++step)
+    {
+      projectileSimulation.step();
+    }
+
+    expect(projectileWorld.weaponProjectiles.empty(), "Weapon projectile did not resolve its impact.");
+    expect(projectileTarget->combat.shields < initialShields, "Weapon projectile did not damage its target on impact.");
+
     spasim::Simulation simulation{spasim::makeInitialWorld()};
     auto &combatWorld = simulation.world();
     const auto playerId = spasim::joinTeam(combatWorld, 0, "Test");

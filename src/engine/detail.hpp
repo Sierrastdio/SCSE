@@ -32,4 +32,5 @@ namespace spasim::detail
 
 void updateMovement(World &world, const GameRules &rules);
 void updateTorpedoes(World &world);
+void updateWeaponProjectiles(World &world);
 } // namespace spasim::detail

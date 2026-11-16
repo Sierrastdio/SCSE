@@ -45,6 +45,7 @@ void Simulation::step()
 {
   detail::updateMovement(world_, gameRules_);
   detail::updateTorpedoes(world_);
+  detail::updateWeaponProjectiles(world_);
   world_.elapsedSeconds += world_.fixedStepSeconds;
   ++world_.tick;
 }

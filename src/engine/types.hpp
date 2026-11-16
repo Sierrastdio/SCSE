@@ -161,6 +161,21 @@ struct Torpedo
   bool exists{};
 };
 
+struct WeaponProjectile
+{
+  EntityId id{};
+  EntityId shooter{};
+  EntityId target{};
+  TeamId team{};
+  Vec3 position{};
+  Vec3 velocity{};
+  double speed{};
+  double damage{};
+  double collisionRadius{};
+  double remainingRange{};
+  bool explosive{};
+};
+
 struct Target
 {
   enum class Kind : std::uint8_t
@@ -235,6 +250,7 @@ struct World
   std::vector<std::optional<Ship>> ships;
   std::vector<std::optional<Base>> bases;
   std::vector<std::optional<Torpedo>> torpedoes;
+  std::vector<WeaponProjectile> weaponProjectiles;
   std::size_t playersPerTeam{};
   std::size_t shipsPerPlayer{};
   std::uint64_t tick{};

@@ -120,6 +120,17 @@ void writeSnapshot(const World &world, std::ostream &output)
            << ",\"vz\":" << torpedo.velocity.z << ",\"radius\":" << torpedo.collisionRadius << '}';
   }
 
+  for (const auto &projectile : world.weaponProjectiles)
+  {
+    beginEntity();
+    output << "{\"id\":" << projectile.id << ",\"kind\":\"weapon_projectile\",\"team\":"
+           << static_cast<int>(projectile.team) << ",\"team_name\":";
+    writeString(output, world.teams[projectile.team].name);
+    output << ",\"owner\":" << projectile.shooter << ",\"x\":" << projectile.position.x << ",\"y\":" << projectile.position.y
+           << ",\"z\":" << projectile.position.z << ",\"vx\":" << projectile.velocity.x << ",\"vy\":" << projectile.velocity.y
+           << ",\"vz\":" << projectile.velocity.z << ",\"radius\":" << projectile.collisionRadius << '}';
+  }
+
   output << "],\"planets\":[";
   for (std::size_t index = 0; index < world.planets.size(); ++index)
   {
