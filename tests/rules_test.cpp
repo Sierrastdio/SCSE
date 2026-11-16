@@ -37,17 +37,14 @@ int main()
     expect(world.planets.size() == 5, "Scenario planet count changed.");
     expect(world.weapons.size() == 4, "Scenario weapon count changed.");
     expect(world.ships.size() == 80, "Scenario ship capacity changed.");
-    expect(world.ships[0] && world.ships[0]->name == "Practice target Aggstroms",
-      "Practice ship scenario data changed.");
+    expect(world.ships[0] && world.ships[0]->name == "Practice target Aggstroms", "Practice ship scenario data changed.");
 
     expectNear(rules.orbitRadius(world.planets[0], 1), 500.0, 1e-12, "Outer orbit radius changed.");
     expectNear(rules.orbitRadius(world.planets[0], 5), 120.0, 1e-12, "Inner orbit radius changed.");
-    expectNear(rules.speedLimit(3, 1000.0, 500.0), std::sqrt(2.0) * 1.5, 1e-12,
-      "Throttle speed limit changed.");
+    expectNear(rules.speedLimit(3, 1000.0, 500.0), std::sqrt(2.0) * 1.5, 1e-12, "Throttle speed limit changed.");
 
     expectNear(rules.transferRadialStep(100.0, 1000.0, 0.1), 2.5, 1e-12, "Orbit transfer speed cap changed.");
-    expectNear(rules.transferRadialStep(100.0, 99.995, 0.1), -0.005, 1e-12,
-      "Orbit transfer close-range behavior changed.");
+    expectNear(rules.transferRadialStep(100.0, 99.995, 0.1), -0.005, 1e-12, "Orbit transfer close-range behavior changed.");
     expect(rules.approachThrottle(100.0, 0.0, 0.0, 20.0, 0.1) == spasim::AccelerationMode::Accelerate,
       "Approach controller should accelerate below its target speed.");
     expect(rules.approachThrottle(100.0, 20.0, 20.0, 20.0, 0.1) == spasim::AccelerationMode::Decelerate,
@@ -101,8 +98,9 @@ int main()
     projectileWorld.weapons[0].projectileSpeed = 10.0;
     projectileWorld.weapons[0].aim.maximumHorizontalFiringAngleDegrees = 180.0;
     projectileWorld.weapons[0].aim.maximumVerticalFiringAngleDegrees = 180.0;
-    expect(projectileSimulation.execute(*projectilePlayerId,
-             spasim::SelectTarget{{spasim::Target::Kind::Entity, projectileTarget->id}}).status
+    expect(
+      projectileSimulation.execute(*projectilePlayerId, spasim::SelectTarget{{spasim::Target::Kind::Entity, projectileTarget->id}})
+          .status
         == spasim::CommandStatus::Applied,
       "Could not select the projectile test target.");
     const double initialShields = projectileTarget->combat.shields;
@@ -125,6 +123,37 @@ int main()
 
     expect(projectileWorld.weaponProjectiles.empty(), "Weapon projectile did not resolve its impact.");
     expect(projectileTarget->combat.shields < initialShields, "Weapon projectile did not damage its target on impact.");
+
+    projectileTarget->combat.shields = 0.0;
+    projectileTarget->combat.hull = 100000.0;
+    projectileTarget->combat.hullDamage = 0.0;
+    for (std::size_t weaponIndex = 0; weaponIndex < projectileWorld.weapons.size(); ++weaponIndex)
+    {
+      auto &weapon = projectileWorld.weapons[weaponIndex];
+      weapon.aim.maximumHorizontalFiringAngleDegrees = 180.0;
+      weapon.aim.maximumVerticalFiringAngleDegrees = 180.0;
+      expect(
+        projectileSimulation.execute(*projectilePlayerId, spasim::SetWeaponProfile{static_cast<spasim::WeaponId>(weaponIndex)}).status
+          == spasim::CommandStatus::Applied,
+        "Could not select a weapon for damage verification.");
+
+      const double previousDamage = projectileTarget->combat.hullDamage;
+      expect(projectileSimulation.execute(*projectilePlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
+        "A weapon profile could not fire at an enemy ship.");
+      const auto projectileId = projectileWorld.weaponProjectiles.back().id;
+      for (int step = 0; step < 500; ++step)
+      {
+        const auto projectile = std::find_if(projectileWorld.weaponProjectiles.begin(), projectileWorld.weaponProjectiles.end(),
+          [projectileId](const spasim::WeaponProjectile &entry) { return entry.id == projectileId; });
+        if (projectile == projectileWorld.weaponProjectiles.end())
+        {
+          break;
+        }
+        projectileSimulation.step();
+      }
+      expect(projectileTarget->combat.hullDamage > previousDamage, "A weapon profile did not damage an enemy ship.");
+      projectileTarget->combat.hullDamage = 0.0;
+    }
 
     spasim::Simulation simulation{spasim::makeInitialWorld()};
     auto &combatWorld = simulation.world();
@@ -154,8 +183,8 @@ int main()
     shooter->resources.energy = 10000.0;
     target->position = {100.0, 0.0, 0.0};
     target->velocity = {};
-    expect(simulation.execute(*playerId,
-             spasim::SelectTarget{{spasim::Target::Kind::Entity, target->id}}).status == spasim::CommandStatus::Applied,
+    expect(simulation.execute(*playerId, spasim::SelectTarget{{spasim::Target::Kind::Entity, target->id}}).status
+             == spasim::CommandStatus::Applied,
       "Could not select the combat test target.");
 
     combatWorld.weapons[0].aim.maximumHorizontalFiringAngleDegrees = 90.0;
@@ -188,12 +217,10 @@ int main()
     auto &loadoutWorld = loadoutSimulation.world();
     const auto loadoutPlayerId = spasim::joinTeam(loadoutWorld, 0, "Loadout test");
     auto *loadoutPlayer = loadoutPlayerId ? loadoutWorld.findPlayer(*loadoutPlayerId) : nullptr;
-    auto *firstShip = loadoutPlayer && !loadoutPlayer->selectedShips.empty()
-      ? loadoutWorld.findShip(loadoutPlayer->selectedShips[0])
-      : nullptr;
-    auto *secondShip = loadoutPlayer && loadoutPlayer->selectedShips.size() > 1
-      ? loadoutWorld.findShip(loadoutPlayer->selectedShips[1])
-      : nullptr;
+    auto *firstShip
+      = loadoutPlayer && !loadoutPlayer->selectedShips.empty() ? loadoutWorld.findShip(loadoutPlayer->selectedShips[0]) : nullptr;
+    auto *secondShip
+      = loadoutPlayer && loadoutPlayer->selectedShips.size() > 1 ? loadoutWorld.findShip(loadoutPlayer->selectedShips[1]) : nullptr;
     spasim::Ship *loadoutTarget{};
     for (auto &slot : loadoutWorld.ships)
     {
@@ -215,8 +242,8 @@ int main()
     loadoutTarget->velocity = {};
     loadoutWorld.weapons[0].aim.maximumHorizontalFiringAngleDegrees = 180.0;
     loadoutWorld.weapons[1].aim.maximumHorizontalFiringAngleDegrees = 180.0;
-    expect(loadoutSimulation.execute(*loadoutPlayerId,
-             spasim::SelectTarget{{spasim::Target::Kind::Entity, loadoutTarget->id}}).status == spasim::CommandStatus::Applied,
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SelectTarget{{spasim::Target::Kind::Entity, loadoutTarget->id}}).status
+             == spasim::CommandStatus::Applied,
       "Could not assign the loadout test target.");
     expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SelectShips{{firstShip->id}}).status == spasim::CommandStatus::Applied,
       "Could not select the first loadout test ship.");
@@ -227,8 +254,8 @@ int main()
     expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SetWeaponProfile{1}).status == spasim::CommandStatus::Applied,
       "Could not assign the second ship's weapon.");
     expect(firstShip->weapon == 0 && secondShip->weapon == 1, "Individual weapon profiles were not retained per ship.");
-    expect(loadoutSimulation.execute(*loadoutPlayerId,
-             spasim::SelectShips{{firstShip->id, secondShip->id}}).status == spasim::CommandStatus::Applied,
+    expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::SelectShips{{firstShip->id, secondShip->id}}).status
+             == spasim::CommandStatus::Applied,
       "Could not select both loadout test ships.");
     expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
       "Ships with individual weapon profiles could not fire together.");
@@ -242,12 +269,30 @@ int main()
       "Group fire did not preserve each ship's weapon profile.");
     expectNear(firstProjectile->speed, loadoutWorld.weapons[0].projectileSpeed, 1e-12,
       "First ship fired with another ship's weapon speed.");
-    expectNear(firstProjectile->damage, loadoutWorld.weapons[0].damage, 1e-12,
-      "First ship fired with another ship's weapon damage.");
+    expectNear(firstProjectile->damage, loadoutWorld.weapons[0].damage, 1e-12, "First ship fired with another ship's weapon damage.");
     expectNear(secondProjectile->speed, loadoutWorld.weapons[1].projectileSpeed, 1e-12,
       "Second ship fired with another ship's weapon speed.");
     expectNear(secondProjectile->damage, loadoutWorld.weapons[1].damage, 1e-12,
       "Second ship fired with another ship's weapon damage.");
+
+    const spasim::EntityId slowProjectileId = firstProjectile->id;
+    const spasim::Vec3 slowProjectileStart = firstProjectile->position;
+    loadoutTarget->combat.shields = 0.0;
+    loadoutTarget->combat.hull = 25.0;
+    loadoutTarget->combat.hullDamage = 0.0;
+    for (int step = 0; step < 20 && !loadoutTarget->combat.destroyed; ++step)
+    {
+      loadoutSimulation.step();
+    }
+    expect(loadoutTarget->combat.destroyed, "Fast weapon projectile did not destroy the loadout test target.");
+
+    loadoutSimulation.step();
+    const auto remainingSlowProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+      [slowProjectileId](const spasim::WeaponProjectile &projectile) { return projectile.id == slowProjectileId; });
+    expect(remainingSlowProjectile != loadoutWorld.weaponProjectiles.end(),
+      "A projectile from a different weapon was removed when its target was destroyed.");
+    expect((remainingSlowProjectile->position - slowProjectileStart).length() > 0.0,
+      "The in-flight projectile stopped moving after its target was destroyed.");
   }
   catch (const std::exception &error)
   {

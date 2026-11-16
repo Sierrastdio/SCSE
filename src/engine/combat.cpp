@@ -338,7 +338,7 @@ void updateWeaponProjectiles(World &world)
 
     if (const auto *targetShip = world.findShip(projectile.target))
     {
-      if (!targetShip->exists || targetShip->combat.destroyed)
+      if (!targetShip->exists)
       {
         return true;
       }
@@ -348,7 +348,7 @@ void updateWeaponProjectiles(World &world)
     }
     else if (const auto *targetBase = world.findBase(projectile.target))
     {
-      if (!targetBase->exists || targetBase->combat.destroyed)
+      if (!targetBase->exists)
       {
         return true;
       }
