@@ -36,7 +36,9 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
     slot->combat.hullDamage = std::min(slot->combat.hull, slot->combat.hullDamage + (damage - shieldDamage));
 
     if (slot->combat.hullDamage >= slot->combat.hull)
+    {
       slot->combat.destroyed = true;
+    }
   }
 }
 
@@ -158,6 +160,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     ship.resources.energy -= cost;
     WeaponProjectile hit{.target = targetId, .team = ship.team, .damage = weapon.damage * action.power};
     applyProjectileImpact(world, hit);
+
     return {CommandStatus::Applied, "Target hit."};
   }
 
@@ -175,6 +178,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     .collisionRadius = std::max(player.phasorDiameter * 0.5, 0.1),
     .remainingRange = weapon.range,
     .explosive = weapon.explosive});
+
   return {CommandStatus::Applied, "Weapon projectile launched."};
 }
 
@@ -202,6 +206,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   if (ship.selectedTarget)
   {
     const Vec3 *targetPosition = positionOf(world, Target{Target::Kind::Entity, *ship.selectedTarget});
+
     if (targetPosition)
     {
       aim = *targetPosition - ship.position;
@@ -375,9 +380,8 @@ void updateWeaponProjectiles(World &world)
     const Vec3 relativeStart = projectile.position - *targetPosition;
     const Vec3 relativeStep = projectileStep - targetVelocity * stepSeconds;
     const double relativeStepSquared = relativeStep.lengthSquared();
-    const double hitFraction = relativeStepSquared > 1e-12
-      ? std::clamp(-dot(relativeStart, relativeStep) / relativeStepSquared, 0.0, 1.0)
-      : 0.0;
+    const double hitFraction
+      = relativeStepSquared > 1e-12 ? std::clamp(-dot(relativeStart, relativeStep) / relativeStepSquared, 0.0, 1.0) : 0.0;
     const Vec3 closestOffset = relativeStart + relativeStep * hitFraction;
     const double hitRadius = projectile.collisionRadius + targetRadius;
 
