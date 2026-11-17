@@ -4,69 +4,83 @@
 #include <limits>
 #include <ranges>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 
 namespace spasim
 {
-
-const Ship *World::findShip(EntityId id) const noexcept
+namespace
 {
-  if (entityKind(id) != EntityKind::Ship || id >= entityRegistry_.size() || !entityRegistry_[id])
+
+template <typename T>
+T *findRegistered(std::vector<std::optional<T>> &storage, const std::vector<std::optional<EntityRef>> &registry, EntityId id,
+  EntityKind kind) noexcept
+{
+  if (id >= registry.size() || !registry[id] || registry[id]->kind != kind)
   {
     return nullptr;
   }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < ships_.size() && ships_[slot] && ships_[slot]->id == id ? &*ships_[slot] : nullptr;
+  const auto slot = registry[id]->slot;
+  return slot < storage.size() && storage[slot] && storage[slot]->id == id ? &*storage[slot] : nullptr;
+}
+
+template <typename T>
+const T *findRegistered(const std::vector<std::optional<T>> &storage, const std::vector<std::optional<EntityRef>> &registry,
+  EntityId id, EntityKind kind) noexcept
+{
+  if (id >= registry.size() || !registry[id] || registry[id]->kind != kind)
+  {
+    return nullptr;
+  }
+  const auto slot = registry[id]->slot;
+  return slot < storage.size() && storage[slot] && storage[slot]->id == id ? &*storage[slot] : nullptr;
+}
+
+template <typename T, typename AllocateId>
+T *spawnInStorage(std::vector<std::optional<T>> &storage, T value, EntityKind kind, AllocateId &&allocateId)
+{
+  const auto slot = std::ranges::find_if(storage, [](const auto &entry) { return !entry; });
+  const auto index = slot == storage.end() ? storage.size() : static_cast<std::size_t>(slot - storage.begin());
+  if (slot == storage.end())
+  {
+    storage.emplace_back();
+  }
+  value.id = allocateId(kind, index);
+  value.exists = true;
+  storage[index] = std::move(value);
+  return &*storage[index];
+}
+
+} // namespace
+
+const Ship *World::findShip(EntityId id) const noexcept
+{
+  return findRegistered(ships_, entityRegistry_, id, EntityKind::Ship);
 }
 
 Ship *World::findShip(EntityId id) noexcept
 {
-  if (entityKind(id) != EntityKind::Ship || id >= entityRegistry_.size() || !entityRegistry_[id])
-  {
-    return nullptr;
-  }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < ships_.size() && ships_[slot] && ships_[slot]->id == id ? &*ships_[slot] : nullptr;
+  return findRegistered(ships_, entityRegistry_, id, EntityKind::Ship);
 }
 
 Base *World::findBase(EntityId id) noexcept
 {
-  if (entityKind(id) != EntityKind::Base || id >= entityRegistry_.size() || !entityRegistry_[id])
-  {
-    return nullptr;
-  }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < bases_.size() && bases_[slot] && bases_[slot]->id == id ? &*bases_[slot] : nullptr;
+  return findRegistered(bases_, entityRegistry_, id, EntityKind::Base);
 }
 
 const Base *World::findBase(EntityId id) const noexcept
 {
-  if (entityKind(id) != EntityKind::Base || id >= entityRegistry_.size() || !entityRegistry_[id])
-  {
-    return nullptr;
-  }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < bases_.size() && bases_[slot] && bases_[slot]->id == id ? &*bases_[slot] : nullptr;
+  return findRegistered(bases_, entityRegistry_, id, EntityKind::Base);
 }
 
 Torpedo *World::findTorpedo(EntityId id) noexcept
 {
-  if (entityKind(id) != EntityKind::Torpedo || id >= entityRegistry_.size() || !entityRegistry_[id])
-  {
-    return nullptr;
-  }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < torpedoes_.size() && torpedoes_[slot] && torpedoes_[slot]->id == id ? &*torpedoes_[slot] : nullptr;
+  return findRegistered(torpedoes_, entityRegistry_, id, EntityKind::Torpedo);
 }
 
 const Torpedo *World::findTorpedo(EntityId id) const noexcept
 {
-  if (entityKind(id) != EntityKind::Torpedo || id >= entityRegistry_.size() || !entityRegistry_[id])
-  {
-    return nullptr;
-  }
-  const auto slot = entityRegistry_[id]->slot;
-  return slot < torpedoes_.size() && torpedoes_[slot] && torpedoes_[slot]->id == id ? &*torpedoes_[slot] : nullptr;
+  return findRegistered(torpedoes_, entityRegistry_, id, EntityKind::Torpedo);
 }
 
 std::optional<EntityKind> World::entityKind(EntityId id) const noexcept
@@ -111,11 +125,15 @@ void World::resetEntityStorage(std::size_t shipCapacity, std::size_t baseCapacit
 
 void World::replaceProjectiles(std::vector<WeaponProjectile> projectiles)
 {
+  std::unordered_set<EntityId> retainedIds;
+  retainedIds.reserve(projectiles.size());
+  for (const auto &projectile : projectiles)
+  {
+    retainedIds.insert(projectile.id);
+  }
   for (const auto &oldProjectile : weaponProjectiles_)
   {
-    const bool retained
-      = std::ranges::any_of(projectiles, [&](const WeaponProjectile &projectile) { return projectile.id == oldProjectile.id; });
-    if (!retained)
+    if (!retainedIds.contains(oldProjectile.id))
     {
       unregisterEntity(oldProjectile.id);
     }
@@ -141,47 +159,20 @@ void World::unregisterEntity(EntityId id) noexcept
 
 Ship *World::spawnShip(Ship ship)
 {
-  const auto slot = std::ranges::find_if(ships_, [](const auto &entry) { return !entry; });
-  const bool append = slot == ships_.end();
-  if (append)
-  {
-    ships_.emplace_back();
-  }
-  const auto index = append ? ships_.size() - 1 : static_cast<std::size_t>(slot - ships_.begin());
-  ship.id = allocateEntityId(EntityKind::Ship, index);
-  ship.exists = true;
-  ships_[index] = std::move(ship);
-  return &*ships_[index];
+  return spawnInStorage(ships_, std::move(ship), EntityKind::Ship,
+    [this](EntityKind kind, std::size_t slot) { return allocateEntityId(kind, slot); });
 }
 
 Base *World::spawnBase(Base base)
 {
-  const auto slot = std::ranges::find_if(bases_, [](const auto &entry) { return !entry; });
-  const bool append = slot == bases_.end();
-  if (append)
-  {
-    bases_.emplace_back();
-  }
-  const auto index = append ? bases_.size() - 1 : static_cast<std::size_t>(slot - bases_.begin());
-  base.id = allocateEntityId(EntityKind::Base, index);
-  base.exists = true;
-  bases_[index] = std::move(base);
-  return &*bases_[index];
+  return spawnInStorage(bases_, std::move(base), EntityKind::Base,
+    [this](EntityKind kind, std::size_t slot) { return allocateEntityId(kind, slot); });
 }
 
 Torpedo *World::spawnTorpedo(Torpedo torpedo)
 {
-  const auto slot = std::ranges::find_if(torpedoes_, [](const auto &entry) { return !entry; });
-  const bool append = slot == torpedoes_.end();
-  if (append)
-  {
-    torpedoes_.emplace_back();
-  }
-  const auto index = append ? torpedoes_.size() - 1 : static_cast<std::size_t>(slot - torpedoes_.begin());
-  torpedo.id = allocateEntityId(EntityKind::Torpedo, index);
-  torpedo.exists = true;
-  torpedoes_[index] = std::move(torpedo);
-  return &*torpedoes_[index];
+  return spawnInStorage(torpedoes_, std::move(torpedo), EntityKind::Torpedo,
+    [this](EntityKind kind, std::size_t slot) { return allocateEntityId(kind, slot); });
 }
 
 WeaponProjectile *World::spawnWeaponProjectile(WeaponProjectile projectile)

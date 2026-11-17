@@ -7,6 +7,7 @@ project(SCSE
 )
 
 option(SCSE_BUILD_CONSOLE "Build the sample console front end" ON)
+option(SCSE_BUILD_STRESS_SCENARIO "Build the large-world simulation stress runner" ON)
 include(CTest)
 
 add_library(scse_core
@@ -26,6 +27,14 @@ add_library(scse_core
 
 target_include_directories(scse_core PUBLIC src)
 target_compile_features(scse_core PUBLIC cxx_std_20)
+
+if(SCSE_BUILD_STRESS_SCENARIO)
+    add_executable(scse_stress tools/stress_scenario.cpp)
+    target_link_libraries(scse_stress PRIVATE scse_core)
+    if(WIN32)
+        target_link_libraries(scse_stress PRIVATE psapi)
+    endif()
+endif()
 
 if(MSVC)
     target_compile_options(scse_core PRIVATE /W4 /permissive-)

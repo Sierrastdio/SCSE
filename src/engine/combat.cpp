@@ -42,7 +42,10 @@ void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
   }
 }
 
-double dot(const Vec3 &lhs, const Vec3 &rhs) noexcept { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; }
+double dot(const Vec3 &lhs, const Vec3 &rhs) noexcept
+{
+  return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
 
 void applyProjectileImpact(World &world, WeaponProjectile &projectile)
 {
@@ -286,11 +289,13 @@ void updateTorpedoes(World &world)
     slot->position += slot->velocity * dt;
     slot->lifeSeconds -= dt;
 
-    const bool hitPlanet = std::ranges::any_of(world.planets, [&](const Planet &planet) {
-      const Vec3 offset = slot->position - planet.position;
-      const double radius = planet.radius + slot->collisionRadius;
-      return offset.lengthSquared() <= radius * radius;
-    });
+    const bool hitPlanet = std::ranges::any_of(world.planets,
+      [&](const Planet &planet)
+      {
+        const Vec3 offset = slot->position - planet.position;
+        const double radius = planet.radius + slot->collisionRadius;
+        return offset.lengthSquared() <= radius * radius;
+      });
 
     if (hitPlanet)
     {

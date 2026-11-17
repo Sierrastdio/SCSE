@@ -10,7 +10,10 @@ namespace spasim
 namespace
 {
 
-double dot(const Vec3 &lhs, const Vec3 &rhs) noexcept { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; }
+double dot(const Vec3 &lhs, const Vec3 &rhs) noexcept
+{
+  return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
 
 } // namespace
 

@@ -68,7 +68,8 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand &command
 
   return std::visit(
 
-    [&](const auto &action) -> CommandResult {
+    [&](const auto &action) -> CommandResult
+    {
       using Action = std::decay_t<decltype(action)>;
 
       if constexpr (std::is_same_v<Action, TickWorld>)

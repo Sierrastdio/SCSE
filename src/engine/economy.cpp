@@ -94,7 +94,8 @@ CommandResult executeAction(World &world, Player &, Ship &, const SetAlliances &
     return {CommandStatus::Invalid, "Team ID is out of range."};
   }
 
-  auto setAlly = [&](Team &team, TeamId ally) {
+  auto setAlly = [&](Team &team, TeamId ally)
+  {
     auto found = std::ranges::find(team.allies, ally);
 
     if (action.allied && found == team.allies.end())

@@ -8,7 +8,10 @@ namespace spasim::detail
 namespace
 {
 
-double dot(const Vec3 &lhs, const Vec3 &rhs) { return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z; }
+double dot(const Vec3 &lhs, const Vec3 &rhs)
+{
+  return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
 
 Vec3 cross(const Vec3 &lhs, const Vec3 &rhs)
 {
@@ -531,7 +534,10 @@ void integrateShip(World &world, Player *player, Ship &ship, const GameRules &ru
 
 } // namespace
 
-Vec3 gravityAcceleration(const World &world, const Vec3 &position) { return gravityAt(world, position); }
+Vec3 gravityAcceleration(const World &world, const Vec3 &position)
+{
+  return gravityAt(world, position);
+}
 
 void updateMovement(World &world, const GameRules &rules)
 {

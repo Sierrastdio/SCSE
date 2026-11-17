@@ -11,11 +11,20 @@
 namespace spasim
 {
 
-double Vec3::lengthSquared() const noexcept { return x * x + y * y + z * z; }
+double Vec3::lengthSquared() const noexcept
+{
+  return x * x + y * y + z * z;
+}
 
-double Vec3::length() const noexcept { return std::sqrt(lengthSquared()); }
+double Vec3::length() const noexcept
+{
+  return std::sqrt(lengthSquared());
+}
 
-double Vec3::distanceTo(const Vec3 &other) const noexcept { return (*this - other).length(); }
+double Vec3::distanceTo(const Vec3 &other) const noexcept
+{
+  return (*this - other).length();
+}
 
 Vec3 &Vec3::operator+=(const Vec3 &other) noexcept
 {
@@ -35,9 +44,15 @@ Vec3 &Vec3::operator-=(const Vec3 &other) noexcept
   return *this;
 }
 
-Vec3 operator+(Vec3 lhs, const Vec3 &rhs) noexcept { return lhs += rhs; }
+Vec3 operator+(Vec3 lhs, const Vec3 &rhs) noexcept
+{
+  return lhs += rhs;
+}
 
-Vec3 operator-(Vec3 lhs, const Vec3 &rhs) noexcept { return lhs -= rhs; }
+Vec3 operator-(Vec3 lhs, const Vec3 &rhs) noexcept
+{
+  return lhs -= rhs;
+}
 
 Vec3 operator*(Vec3 value, double scalar) noexcept
 {

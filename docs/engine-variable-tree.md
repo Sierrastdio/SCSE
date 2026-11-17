@@ -10,6 +10,26 @@
 - 각 항목에는 C++ 자료형과 범주를 붙인다: `실수`, `정수`, `불리언`, `배열/컨테이너`, `구조체/클래스`, `enum`, `auto(추론)`.
 - `detail.hpp`, `world.hpp`, `engine.hpp`는 별도 저장 변수가 없어 함수 선언 대신 실제 구현부에 매개변수를 적었다.
 
+## 월드·엔티티 관계
+
+ID와 저장 위치를 구분해 읽는다.
+
+- `EntityId`는 함선·기지·어뢰·무기 발사체가 함께 쓰는 엔티티 ID다. ID는 `World::allocateEntityId`가 발급한다.
+- `PlanetId`는 행성 목록에서만 쓰는 별도 ID다. `Target::Kind`가 `Entity`인지 `Planet`인지에 따라 `Target::id`를 해석한다.
+- `EntityRef`는 `EntityKind`와 해당 형식 저장소의 슬롯 번호를 연결한다. `entityRegistry_`가 `EntityId`를 인덱스로 이 참조를 보관한다.
+- 엔티티 데이터는 형식별 저장소에 둔다. ID로 저장소를 선형 검색하지 않고 레지스트리 슬롯을 사용해 조회한다.
+- `shipStorage()`, `baseStorage()`, `torpedoStorage()`는 컨테이너 크기 변경이 불가능한 `std::span` 접근자다. 생성·삭제는 `spawn*`와 `despawn` 경로를 사용한다. `projectiles()`는 발사체 목록을 읽고, 갱신은 `replaceProjectiles`를 통한다.
+- 어뢰는 발사 전부터 함선 슬롯에 연결된 ID를 갖는다. 폭발 후 `exists`가 꺼져도 해당 슬롯은 재사용을 위해 등록 상태로 남는다. 플레이어 제거 때는 어뢰 엔티티도 제거한다.
+
+```text
+PlanetId ───────────────> World::planets[index]
+EntityId ─> entityRegistry_[id] ─> EntityRef { kind, slot }
+                                      ├── Ship             ─> ships_[slot]
+                                      ├── Base             ─> bases_[slot]
+                                      ├── Torpedo          ─> torpedoes_[slot]
+                                      └── WeaponProjectile ─> weaponProjectiles_[slot]
+```
+
 ## 자료형별 데이터 멤버
 
 ### `src/engine/types.hpp`
@@ -30,6 +50,18 @@
 - `Ship` — `ObjectKind` enum 항목; `toString` 등 객체 종류 표시에 사용.
 - `Base` — `ObjectKind` enum 항목; `toString` 등 객체 종류 표시에 사용.
 - `Torpedo` — `ObjectKind` enum 항목; `toString` 등 객체 종류 표시에 사용.
+
+#### `enum class EntityKind : std::uint8_t`
+
+- `Ship` — `EntityKind` enum 항목; 레지스트리에서 함선 저장소를 지정.
+- `Base` — `EntityKind` enum 항목; 레지스트리에서 기지 저장소를 지정.
+- `Torpedo` — `EntityKind` enum 항목; 레지스트리에서 어뢰 저장소를 지정.
+- `WeaponProjectile` — `EntityKind` enum 항목; 레지스트리에서 발사체 벡터를 지정.
+
+#### `struct EntityRef`
+
+- `kind` — `EntityKind` (enum); 엔티티가 속한 형식별 저장소.
+- `slot` — `std::size_t` (정수); 해당 저장소 안의 위치.
 
 #### `enum class AccelerationMode : std::uint8_t`
 
@@ -210,28 +242,34 @@
 
 #### `struct World`
 
+**시나리오와 플레이어 구성**
+
 - `teams` — `std::vector<Team>` (배열/컨테이너); 팀 설정·동맹 접근.
 - `planets` — `std::vector<Planet>` (배열/컨테이너); 이동·항법·중력 계산.
 - `playerSlots` — `std::vector<std::optional<Player>>` (배열/컨테이너); 플레이어 생성·검색.
-- `ships` — `std::vector<std::optional<Ship>>` (배열/컨테이너); 이동·전투 처리.
-- `bases` — `std::vector<std::optional<Base>>` (배열/컨테이너); 경제·전투 처리.
-- `torpedoes` — `std::vector<std::optional<Torpedo>>` (배열/컨테이너); 발사·업데이트.
-- `weaponProjectiles` — `std::vector<WeaponProjectile>` (배열/컨테이너); 투사체 생성·업데이트.
 - `playersPerTeam` — `std::size_t` (정수); 참가 제한.
 - `shipsPerPlayer` — `std::size_t` (정수); 슬롯·ID 할당.
+
+**시뮬레이션 시계와 난수 상태**
+
 - `tick` — `std::uint64_t` (정수); 매 스텝 증가.
 - `elapsedSeconds` — `double` (실수); 누적 시뮬레이션 시간.
 - `fixedStepSeconds` — `double` (실수); 이동·전투 업데이트 간격.
 - `random` — `std::mt19937_64` (클래스); 무작위 생성.
 - `randomSeedOverride` — `std::optional<std::uint64_t>` (선택적 정수); 난수 시드 덮어쓰기.
+
+**ID 정책과 시뮬레이션 설정**
+
 - `nextEntityId` — `EntityId` (`uint32_t`, 정수); 새 엔티티 ID 발급.
-- `entityIdStart` — `EntityId` (`uint32_t`, 정수); 초기 엔티티 ID.
 - `playerIdStart` — `PlayerId` (`uint32_t`, 정수); 플레이어 ID 시작점.
 - `defaultWeapon` — `WeaponId` (`uint32_t`, 정수); 기본 무기 선택.
 - `friendlyFire` — `bool` (불리언); 아군 피해 검사.
 - `paused` — `bool` (불리언); 일시정지 상태.
 - `sessionDurationSeconds` — `double` (실수); 세션 제한 시간.
 - `weapons` — `std::vector<WeaponProfile>` (배열/컨테이너); 발사·조준 처리.
+
+**생성 기본값**
+
 - `playerDefaults` — `Player` (구조체); 플레이어 생성 기본값.
 - `playerShipDefaults` — `Ship` (구조체); 플레이어 함선 생성 기본값.
 - `practiceShipDefaults` — `Ship` (구조체); 연습 함선 생성 기본값.
@@ -239,6 +277,16 @@
 - `torpedoLaunchSpeed` — `double` (실수); 어뢰 초기 속도.
 - `torpedoLifeSeconds` — `double` (실수); 어뢰 기본 수명.
 - `torpedoCollisionRadius` — `double` (실수); 어뢰 충돌 반경 기본값.
+
+**엔티티 저장소 (private)**
+
+- `entityRegistry_` — `std::vector<std::optional<EntityRef>>` (private 배열/컨테이너); ID별 엔티티 종류와 저장 슬롯.
+- `ships_` — `std::vector<std::optional<Ship>>` (private 배열/컨테이너); 함선 데이터 저장소. `shipStorage()`로 `std::span` 접근.
+- `bases_` — `std::vector<std::optional<Base>>` (private 배열/컨테이너); 기지 데이터 저장소. `baseStorage()`로 `std::span` 접근.
+- `torpedoes_` — `std::vector<std::optional<Torpedo>>` (private 배열/컨테이너); 어뢰 슬롯 저장소. `torpedoStorage()`로 `std::span` 접근.
+- `weaponProjectiles_` — `std::vector<WeaponProjectile>` (private 배열/컨테이너); 발사체 데이터 저장소. 조회는 `projectiles()`, 재정렬·갱신은 `replaceProjectiles`.
+
+생성·조회·삭제와 읽기/갱신 접근 API는 아래 `World` 함수 및 `registry.cpp` 항목에 정리한다.
 
 ### `src/engine/actions.hpp`
 
@@ -379,6 +427,50 @@
 - 로컬 `base` — `auto*` (추론 포인터); 기지 검색 결과.
 - 로컬 `torpedo` — `auto*` (추론 포인터); 어뢰 검색 결과.
 
+### `src/engine/registry.cpp`
+
+`World`의 ID 발급·종류별 조회·생성·삭제·발사체 슬롯 재인덱싱을 구현한다. `EntityId`에서 `EntityRef`를 거쳐 실제 저장소 슬롯을 찾는 경로는 이 파일에 모인다.
+
+#### 조회 함수: `World::findShip`, `findBase`, `findTorpedo`, `findWeaponProjectile`
+
+- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 조회할 엔티티 ID.
+- 로컬 `slot` — `const auto` (`std::size_t`, 정수); 레지스트리의 저장소 슬롯.
+- 반환값 — 해당 타입의 엔티티 포인터; ID 미등록, 타입 불일치, 슬롯 불일치면 `nullptr`.
+
+#### `World::entityKind`
+
+- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 종류를 확인할 ID.
+- 반환값 — `std::optional<EntityKind>`; 등록되지 않은 ID는 빈 optional.
+
+#### `World::allocateEntityId`
+
+- 매개변수 `kind` — `EntityKind` (enum); 등록할 저장소 종류.
+- 매개변수 `slot` — `std::size_t` (정수); 저장소 안에서 엔티티가 놓일 위치.
+- 로컬 `id` — `const EntityId` (`uint32_t`, 정수); 새로 발급한 ID.
+- 로컬 `nextEntityId` — `World` 멤버; 사용 중 ID를 건너뛰며 다음 ID를 찾는다.
+
+#### `World::spawnShip`, `spawnBase`, `spawnTorpedo`, `spawnWeaponProjectile`
+
+- 매개변수 — 생성할 `Ship`, `Base`, `Torpedo`, `WeaponProjectile` 값.
+- 로컬 `slot` — 저장소의 빈 슬롯 탐색 결과 (함선·기지·어뢰).
+- 로컬 `append` — `bool`; 빈 슬롯이 없어 저장소 끝에 슬롯을 추가할지 여부.
+- 로컬 `index` — `std::size_t`; 엔티티가 배치될 저장소 슬롯.
+- 반환값 — 등록되어 저장소에 들어간 엔티티 포인터.
+
+#### `World::despawn`
+
+- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 제거할 엔티티 ID.
+- 로컬 `ref` — `const EntityRef`; 엔티티 종류와 저장소 슬롯.
+- 반복 변수 `i` — `std::size_t`; 발사체 벡터에서 제거 이후 갱신할 슬롯.
+- 반환값 — 제거 성공 여부 (`bool`).
+
+#### `World::resetEntityStorage`, `replaceProjectiles`, `unregisterEntity`
+
+- `resetEntityStorage` 매개변수 — 함선·기지·어뢰 용량과 최초 엔티티 ID; 시나리오 초기 저장소 구성.
+- `replaceProjectiles` 매개변수 `projectiles` — 새 발사체 벡터; 레지스트리 해제와 슬롯 인덱스를 함께 갱신.
+- `replaceProjectiles` 로컬 `oldProjectile`, `retained`, `slot`, `id` — 기존 발사체 비교와 새 슬롯 인덱싱.
+- `unregisterEntity` 매개변수 `id` — 레지스트리에서 해제할 엔티티 ID; `despawn` 및 발사체 갱신에서 사용.
+
 ### `src/engine/world.cpp`
 
 #### `Vec3` 연산자와 거리 함수
@@ -396,24 +488,6 @@
 - 매개변수 `id` — `PlayerId` (`uint32_t`, 정수); 찾을 플레이어 ID.
 - 로컬 `found` — `auto` (추론 반복자); 일치한 플레이어 슬롯.
 - 람다 매개변수 `slot` — `const auto&` (추론 참조); 검사 중인 플레이어 슬롯.
-
-#### `World::findShip` (const/non-const)
-
-- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 찾을 함선 ID.
-- 로컬 `found` — `auto` (추론 반복자); 일치한 함선 슬롯.
-- 람다 매개변수 `slot` — `const auto&` (추론 참조); 검사 중인 함선 슬롯.
-
-#### `World::findBase` (const/non-const)
-
-- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 찾을 기지 ID.
-- 로컬 `found` — `auto` (추론 반복자); 일치한 기지 슬롯.
-- 람다 매개변수 `slot` — `const auto&` (추론 참조); 검사 중인 기지 슬롯.
-
-#### `World::findTorpedo` (const/non-const)
-
-- 매개변수 `id` — `EntityId` (`uint32_t`, 정수); 찾을 어뢰 ID.
-- 로컬 `found` — `auto` (추론 반복자); 일치한 어뢰 슬롯.
-- 람다 매개변수 `slot` — `const auto&` (추론 참조); 검사 중인 어뢰 슬롯.
 
 #### `World::activePlayerCount`
 
@@ -1028,13 +1102,26 @@
 
 ```text
 Simulation
-├── world_ : World       # 엔티티·시간 상태; step/execute에서 엔진 구현부로 전달
-└── gameRules_ : GameRules # 시나리오 규칙; 이동·항법·무기 계산에 전달
+├── world_ : World              # 런타임 상태; step/execute에서 엔진 구현부로 전달
+└── gameRules_ : GameRules      # 이동·궤도·조준 정책과 시나리오 설정
 
 World
-├── Entity 멤버 구조체들 # ships/bases/torpedoes 등에 저장
-├── 시간·ID·난수 상태   # 월드 생성과 매 틱 처리에서 사용
-└── 기본값·설정         # GameRules::applyScenario가 초기화
+├── 시나리오 데이터
+│   ├── teams, planets, weapons
+│   └── playerSlots와 초기값·용량 설정
+├── 런타임 상태
+│   ├── tick, elapsedSeconds, fixedStepSeconds, paused
+│   └── random, randomSeedOverride
+├── 엔티티 저장소
+│   ├── entityRegistry_[EntityId] → EntityRef { kind, slot }
+│   └── kind별 컨테이너: ships_, bases_, torpedoes_, weaponProjectiles_
+└── 엔티티 API
+    ├── 조회: findShip/findBase/findTorpedo/findWeaponProjectile
+    ├── 생성: spawnShip/spawnBase/spawnTorpedo/spawnWeaponProjectile
+    └── 삭제·갱신: despawn/replaceProjectiles
+
+PlanetId ──> planets 인덱스
+EntityId ──> entityRegistry_ ──> EntityKind + 형식별 저장소 슬롯
 
 WorldCommand
 └── 명령 구조체 데이터  # Simulation::execute가 해당 executeAction으로 전달

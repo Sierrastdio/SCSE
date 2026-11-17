@@ -62,7 +62,8 @@ struct FireTorpedo
 };
 
 struct DetonateTorpedo
-{};
+{
+};
 
 struct SetWeaponProfile
 {
@@ -89,7 +90,8 @@ struct LoadFromPlanet
 };
 
 struct TickWorld
-{};
+{
+};
 
 struct SetAlliances
 {
@@ -115,7 +117,10 @@ struct CommandResult
   CommandStatus status{CommandStatus::Applied};
   std::string message;
 
-  [[nodiscard]] explicit operator bool() const noexcept { return status == CommandStatus::Applied; }
+  [[nodiscard]] explicit operator bool() const noexcept
+  {
+    return status == CommandStatus::Applied;
+  }
 };
 
 } // namespace spasim

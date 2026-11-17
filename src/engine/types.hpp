@@ -301,13 +301,42 @@ struct World
   [[nodiscard]] Torpedo *spawnTorpedo(Torpedo torpedo);
   [[nodiscard]] WeaponProjectile *spawnWeaponProjectile(WeaponProjectile projectile);
   [[nodiscard]] bool despawn(EntityId id) noexcept;
-  [[nodiscard]] std::span<std::optional<Ship>> shipStorage() noexcept { return ships_; }
-  [[nodiscard]] std::span<const std::optional<Ship>> shipStorage() const noexcept { return ships_; }
-  [[nodiscard]] std::span<std::optional<Base>> baseStorage() noexcept { return bases_; }
-  [[nodiscard]] std::span<const std::optional<Base>> baseStorage() const noexcept { return bases_; }
-  [[nodiscard]] std::span<std::optional<Torpedo>> torpedoStorage() noexcept { return torpedoes_; }
-  [[nodiscard]] std::span<const std::optional<Torpedo>> torpedoStorage() const noexcept { return torpedoes_; }
-  [[nodiscard]] const std::vector<WeaponProjectile> &projectiles() const noexcept { return weaponProjectiles_; }
+
+  [[nodiscard]] std::span<std::optional<Ship>> shipStorage() noexcept
+  {
+    return ships_;
+  }
+
+  [[nodiscard]] std::span<const std::optional<Ship>> shipStorage() const noexcept
+  {
+    return ships_;
+  }
+
+  [[nodiscard]] std::span<std::optional<Base>> baseStorage() noexcept
+  {
+    return bases_;
+  }
+
+  [[nodiscard]] std::span<const std::optional<Base>> baseStorage() const noexcept
+  {
+    return bases_;
+  }
+
+  [[nodiscard]] std::span<std::optional<Torpedo>> torpedoStorage() noexcept
+  {
+    return torpedoes_;
+  }
+
+  [[nodiscard]] std::span<const std::optional<Torpedo>> torpedoStorage() const noexcept
+  {
+    return torpedoes_;
+  }
+
+  [[nodiscard]] const std::vector<WeaponProjectile> &projectiles() const noexcept
+  {
+    return weaponProjectiles_;
+  }
+
   void replaceProjectiles(std::vector<WeaponProjectile> projectiles);
   [[nodiscard]] WeaponProjectile *findWeaponProjectile(EntityId id) noexcept;
   [[nodiscard]] const WeaponProjectile *findWeaponProjectile(EntityId id) const noexcept;

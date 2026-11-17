@@ -1,7 +1,8 @@
 ---
 # expects clang-format 18.1.8
-BasedOnStyle: Microsoft
+BasedOnStyle: LLVM
 InsertBraces: true
+BreakBeforeBraces: Allman
 BreakBeforeBinaryOperators: All
 AlignOperands: Align
 AlignAfterOpenBracket: DontAlign
@@ -13,9 +14,9 @@ AlignConsecutiveMacros:
   PadOperators:    false
 AlignEscapedNewlines: Left
 AllowShortEnumsOnASingleLine: true
-AllowShortBlocksOnASingleLine: true
+AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: All
+AllowShortFunctionsOnASingleLine: None
 AlwaysBreakTemplateDeclarations: Yes
 BraceWrapping:
   AfterCaseLabel:  true
