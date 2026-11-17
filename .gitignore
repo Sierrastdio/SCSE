@@ -14,8 +14,7 @@ compile_commands.json
 /debug/world.json
 __pycache__/
 /.vscode/
-.clang-format
+#.clang-format
 희망사항.txt
 .a
 scse
-merge/

@@ -12,6 +12,7 @@ include(CTest)
 add_library(scse_core
     src/engine/combat.cpp
     src/engine/economy.cpp
+    src/engine/registry.cpp
     src/engine/engine.cpp
     src/engine/math.cpp
     src/engine/movement.cpp
@@ -21,7 +22,6 @@ add_library(scse_core
     src/rules/calculations/orbit.cpp
     src/rules/calculations/flight.cpp
     src/rules/calculations/weapon_aim.cpp
-    src/console/snapshot.cpp
 )
 
 target_include_directories(scse_core PUBLIC src)

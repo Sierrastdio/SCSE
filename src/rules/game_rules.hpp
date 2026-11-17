@@ -70,8 +70,8 @@ public:
     double sphereOfInfluenceRadius) const noexcept;
   [[nodiscard]] AccelerationMode approachThrottle(double distanceToCapture, double currentSpeed, double closingSpeed,
     double maximumSpeed, double deltaSeconds) const;
-  [[nodiscard]] Vec3 weaponAimDirection(const Vec3 &relativePosition, const Vec3 &relativeVelocity,
-    double projectileSpeed, const WeaponAimSettings &aim) const;
+  [[nodiscard]] Vec3 weaponAimDirection(const Vec3 &relativePosition, const Vec3 &relativeVelocity, double projectileSpeed,
+    const WeaponAimSettings &aim) const;
   [[nodiscard]] bool isWithinFiringArc(const Orientation &orientation, const Vec3 &targetDirection,
     const WeaponAimSettings &aim) const noexcept;
   [[nodiscard]] double transferRadialStep(double currentRadius, double targetRadius, double deltaSeconds) const;

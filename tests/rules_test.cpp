@@ -36,8 +36,21 @@ int main()
     expect(world.teams.size() == 5, "Scenario team count changed.");
     expect(world.planets.size() == 5, "Scenario planet count changed.");
     expect(world.weapons.size() == 4, "Scenario weapon count changed.");
-    expect(world.ships.size() == 80, "Scenario ship capacity changed.");
-    expect(world.ships[0] && world.ships[0]->name == "Practice target Aggstroms", "Practice ship scenario data changed.");
+    expect(world.shipStorage().size() == 80, "Scenario ship capacity changed.");
+    expect(world.shipStorage()[0] && world.shipStorage()[0]->name == "Practice target Aggstroms",
+      "Practice ship scenario data changed.");
+    expect(world.entityKind(world.shipStorage()[0]->id) == spasim::EntityKind::Ship,
+      "Practice ship is missing from the entity registry.");
+    expect(world.findBase(world.shipStorage()[0]->id) == nullptr, "Entity registry returned a ship as a base.");
+    spasim::Ship dynamicallySpawnedShip;
+    dynamicallySpawnedShip.name = "Registry lifecycle test";
+    auto *registeredShip = world.spawnShip(std::move(dynamicallySpawnedShip));
+    expect(registeredShip != nullptr && world.findShip(registeredShip->id) == registeredShip,
+      "Dynamically spawned ship is missing from the registry.");
+    const auto registeredShipId = registeredShip->id;
+    expect(world.despawn(registeredShipId), "Registered ship could not be despawned.");
+    expect(world.findShip(registeredShipId) == nullptr && !world.entityKind(registeredShipId),
+      "Despawned ship remains discoverable in the registry.");
 
     expectNear(rules.orbitRadius(world.planets[0], 1), 500.0, 1e-12, "Outer orbit radius changed.");
     expectNear(rules.orbitRadius(world.planets[0], 5), 120.0, 1e-12, "Inner orbit radius changed.");
@@ -80,7 +93,7 @@ int main()
     auto *projectilePlayer = projectileWorld.findPlayer(*projectilePlayerId);
     auto *projectileShooter = projectilePlayer ? projectileWorld.findShip(projectilePlayer->shipId) : nullptr;
     spasim::Ship *projectileTarget{};
-    for (auto &slot : projectileWorld.ships)
+    for (auto &slot : projectileWorld.shipStorage())
     {
       if (slot && slot->name == "Practice target Fouriers")
       {
@@ -107,7 +120,7 @@ int main()
     expect(projectileSimulation.execute(*projectilePlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
       "Weapon projectile did not launch.");
     expectNear(projectileTarget->combat.shields, initialShields, 1e-12, "Weapon damage was applied before projectile impact.");
-    expect(projectileWorld.weaponProjectiles.size() == 1, "Firing did not create an in-flight weapon projectile.");
+    expect(projectileWorld.projectiles().size() == 1, "Firing did not create an in-flight weapon projectile.");
 
     for (int step = 0; step < 4; ++step)
     {
@@ -116,12 +129,12 @@ int main()
 
     expectNear(projectileTarget->combat.shields, initialShields, 1e-12, "Weapon damage was applied before projectile arrival.");
 
-    for (int step = 0; step < 120 && !projectileWorld.weaponProjectiles.empty(); ++step)
+    for (int step = 0; step < 120 && !projectileWorld.projectiles().empty(); ++step)
     {
       projectileSimulation.step();
     }
 
-    expect(projectileWorld.weaponProjectiles.empty(), "Weapon projectile did not resolve its impact.");
+    expect(projectileWorld.projectiles().empty(), "Weapon projectile did not resolve its impact.");
     expect(projectileTarget->combat.shields < initialShields, "Weapon projectile did not damage its target on impact.");
 
     projectileTarget->combat.shields = 0.0;
@@ -140,12 +153,12 @@ int main()
       const double previousDamage = projectileTarget->combat.hullDamage;
       expect(projectileSimulation.execute(*projectilePlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
         "A weapon profile could not fire at an enemy ship.");
-      const auto projectileId = projectileWorld.weaponProjectiles.back().id;
+      const auto projectileId = projectileWorld.projectiles().back().id;
       for (int step = 0; step < 500; ++step)
       {
-        const auto projectile = std::find_if(projectileWorld.weaponProjectiles.begin(), projectileWorld.weaponProjectiles.end(),
+        const auto projectile = std::find_if(projectileWorld.projectiles().begin(), projectileWorld.projectiles().end(),
           [projectileId](const spasim::WeaponProjectile &entry) { return entry.id == projectileId; });
-        if (projectile == projectileWorld.weaponProjectiles.end())
+        if (projectile == projectileWorld.projectiles().end())
         {
           break;
         }
@@ -163,7 +176,7 @@ int main()
     auto *shooter = player ? combatWorld.findShip(player->shipId) : nullptr;
     auto *playerBase = player ? combatWorld.findBase(player->baseId) : nullptr;
     spasim::Ship *target{};
-    for (auto &slot : combatWorld.ships)
+    for (auto &slot : combatWorld.shipStorage())
     {
       if (slot && slot->name == "Practice target Fouriers")
       {
@@ -222,7 +235,7 @@ int main()
     auto *secondShip
       = loadoutPlayer && loadoutPlayer->selectedShips.size() > 1 ? loadoutWorld.findShip(loadoutPlayer->selectedShips[1]) : nullptr;
     spasim::Ship *loadoutTarget{};
-    for (auto &slot : loadoutWorld.ships)
+    for (auto &slot : loadoutWorld.shipStorage())
     {
       if (slot && slot->name == "Practice target Fouriers")
       {
@@ -259,13 +272,13 @@ int main()
       "Could not select both loadout test ships.");
     expect(loadoutSimulation.execute(*loadoutPlayerId, spasim::FirePhasor{1.0}).status == spasim::CommandStatus::Applied,
       "Ships with individual weapon profiles could not fire together.");
-    expect(loadoutWorld.weaponProjectiles.size() == 2, "Group fire did not launch a projectile from each ship.");
+    expect(loadoutWorld.projectiles().size() == 2, "Group fire did not launch a projectile from each ship.");
 
-    const auto firstProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+    const auto firstProjectile = std::find_if(loadoutWorld.projectiles().begin(), loadoutWorld.projectiles().end(),
       [firstShip](const spasim::WeaponProjectile &projectile) { return projectile.shooter == firstShip->id; });
-    const auto secondProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+    const auto secondProjectile = std::find_if(loadoutWorld.projectiles().begin(), loadoutWorld.projectiles().end(),
       [secondShip](const spasim::WeaponProjectile &projectile) { return projectile.shooter == secondShip->id; });
-    expect(firstProjectile != loadoutWorld.weaponProjectiles.end() && secondProjectile != loadoutWorld.weaponProjectiles.end(),
+    expect(firstProjectile != loadoutWorld.projectiles().end() && secondProjectile != loadoutWorld.projectiles().end(),
       "Group fire did not preserve each ship's weapon profile.");
     expectNear(firstProjectile->speed, loadoutWorld.weapons[0].projectileSpeed, 1e-12,
       "First ship fired with another ship's weapon speed.");
@@ -287,9 +300,9 @@ int main()
     expect(loadoutTarget->combat.destroyed, "Fast weapon projectile did not destroy the loadout test target.");
 
     loadoutSimulation.step();
-    const auto remainingSlowProjectile = std::find_if(loadoutWorld.weaponProjectiles.begin(), loadoutWorld.weaponProjectiles.end(),
+    const auto remainingSlowProjectile = std::find_if(loadoutWorld.projectiles().begin(), loadoutWorld.projectiles().end(),
       [slowProjectileId](const spasim::WeaponProjectile &projectile) { return projectile.id == slowProjectileId; });
-    expect(remainingSlowProjectile != loadoutWorld.weaponProjectiles.end(),
+    expect(remainingSlowProjectile != loadoutWorld.projectiles().end(),
       "A projectile from a different weapon was removed when its target was destroyed.");
     expect((remainingSlowProjectile->position - slowProjectileStart).length() > 0.0,
       "The in-flight projectile stopped moving after its target was destroyed.");

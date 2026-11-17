@@ -6,11 +6,10 @@
 namespace spasim
 {
 
-double GameRules::speedLimit(std::uint8_t throttleLevel, double gravitationalParameter,
-  double sphereOfInfluenceRadius) const noexcept
+double GameRules::speedLimit(std::uint8_t throttleLevel, double gravitationalParameter, double sphereOfInfluenceRadius) const noexcept
 {
-  if (throttleLevel == 0 || throttleLevel > throttleSpeedMultipliers.size() || gravitationalParameter <= 0.0 ||
-      sphereOfInfluenceRadius <= 0.0)
+  if (throttleLevel == 0 || throttleLevel > throttleSpeedMultipliers.size() || gravitationalParameter <= 0.0
+      || sphereOfInfluenceRadius <= 0.0)
   {
     return 0.0;
   }
@@ -19,8 +18,8 @@ double GameRules::speedLimit(std::uint8_t throttleLevel, double gravitationalPar
   return referenceSpeed * throttleSpeedMultipliers[throttleLevel - 1];
 }
 
-AccelerationMode GameRules::approachThrottle(double distanceToCapture, double currentSpeed, double closingSpeed,
-  double maximumSpeed, double deltaSeconds) const
+AccelerationMode GameRules::approachThrottle(double distanceToCapture, double currentSpeed, double closingSpeed, double maximumSpeed,
+  double deltaSeconds) const
 {
   const double remaining = std::max(0.0, distanceToCapture - currentSpeed * deltaSeconds);
   const double safeSpeed = std::sqrt(2.0 * brakingAcceleration * remaining);

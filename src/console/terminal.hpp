@@ -3,12 +3,12 @@
 #include "console/command_parser.hpp"
 #include "engine/engine.hpp"
 
-#include <iosfwd>
 #include <atomic>
+#include <iosfwd>
 #include <mutex>
 #include <queue>
-#include <thread>
 #include <string>
+#include <thread>
 
 namespace spasim
 {
@@ -28,7 +28,6 @@ private:
   void inputWorker();
   [[nodiscard]] bool pollLine(std::string &line);
   void dispatch(PlayerId playerId, const Command &command);
-  void writeSnapshotFile() const;
 
   Simulation &simulation_;
   std::istream &input_;
@@ -36,7 +35,6 @@ private:
   std::queue<std::string> inputQueue_;
   std::mutex inputMutex_;
   std::atomic_bool inputFinished_{};
-  bool snapshotEnabled_{};
   double timeScale_{1.0};
 };
 

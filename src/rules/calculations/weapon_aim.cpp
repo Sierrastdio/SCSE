@@ -86,13 +86,10 @@ bool GameRules::isWithinFiringArc(const Orientation &orientation, const Vec3 &ta
   constexpr double toDegrees = 180.0 / std::numbers::pi;
   const double targetYaw = std::atan2(targetDirection.y, targetDirection.x) * toDegrees;
   const double targetPitch = std::atan2(targetDirection.z, horizontalLength) * toDegrees;
-  const double horizontalError = horizontalLength <= 1e-9
-    ? 0.0
-    : std::abs(std::remainder(targetYaw - orientation.yawDegrees, 360.0));
+  const double horizontalError = horizontalLength <= 1e-9 ? 0.0 : std::abs(std::remainder(targetYaw - orientation.yawDegrees, 360.0));
   const double verticalError = std::abs(targetPitch - orientation.pitchDegrees);
 
-  return horizontalError <= aim.maximumHorizontalFiringAngleDegrees
-      && verticalError <= aim.maximumVerticalFiringAngleDegrees;
+  return horizontalError <= aim.maximumHorizontalFiringAngleDegrees && verticalError <= aim.maximumVerticalFiringAngleDegrees;
 }
 
 } // namespace spasim

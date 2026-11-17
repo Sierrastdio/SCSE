@@ -1,9 +1,11 @@
 #include "engine/world.hpp"
 
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <numbers>
 #include <ranges>
+#include <stdexcept>
 #include <utility>
 
 namespace spasim
@@ -60,47 +62,6 @@ Player *World::findPlayer(PlayerId id) noexcept
   return found == playerSlots.end() ? nullptr : &**found;
 }
 
-const Ship *World::findShip(EntityId id) const noexcept
-{
-  const auto found = std::ranges::find_if(ships, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == ships.end() ? nullptr : &**found;
-}
-
-Ship *World::findShip(EntityId id) noexcept
-{
-  const auto found = std::ranges::find_if(ships, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == ships.end() ? nullptr : &**found;
-}
-
-Base *World::findBase(EntityId id) noexcept
-{
-  const auto found = std::ranges::find_if(bases, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == bases.end() ? nullptr : &**found;
-}
-
-const Base *World::findBase(EntityId id) const noexcept
-{
-  const auto found = std::ranges::find_if(bases, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == bases.end() ? nullptr : &**found;
-}
-
-Torpedo *World::findTorpedo(EntityId id) noexcept
-{
-  const auto found = std::ranges::find_if(torpedoes, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == torpedoes.end() ? nullptr : &**found;
-}
-
-const Torpedo *World::findTorpedo(EntityId id) const noexcept
-{
-  const auto found = std::ranges::find_if(torpedoes, [id](const auto &slot) { return slot && slot->id == id; });
-
-  return found == torpedoes.end() ? nullptr : &**found;
-}
 
 std::size_t World::activePlayerCount(TeamId team) const noexcept
 {
@@ -151,21 +112,21 @@ World makeInitialWorld(std::optional<std::uint64_t> seed)
 
 std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign)
 {
-  if (team >= world.teams.size() || callSign.empty() || callSign.size() > 20 ||
-      world.activePlayerCount(team) >= world.playersPerTeam || world.shipsPerPlayer == 0)
+  if (team >= world.teams.size() || callSign.empty() || callSign.size() > 20 || world.activePlayerCount(team) >= world.playersPerTeam
+      || world.shipsPerPlayer == 0)
   {
     return std::nullopt;
   }
 
   const auto playerSlot = std::ranges::find_if(world.playerSlots, [](const auto &slot) { return !slot; });
 
-  const auto baseSlot = std::ranges::find_if(world.bases, [](const auto &slot) { return !slot; });
+  const auto baseSlot = std::ranges::find_if(world.baseStorage(), [](const auto &slot) { return !slot; });
 
   std::vector<std::optional<Ship> *> shipSlots;
 
   std::vector<std::optional<Torpedo> *> torpedoSlots;
 
-  for (auto &slot : world.ships)
+  for (auto &slot : world.shipStorage())
   {
     if (!slot && shipSlots.size() < world.shipsPerPlayer)
     {
@@ -173,7 +134,7 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     }
   }
 
-  for (auto &slot : world.torpedoes)
+  for (auto &slot : world.torpedoStorage())
   {
     if (!slot && torpedoSlots.size() < world.shipsPerPlayer)
     {
@@ -181,8 +142,8 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     }
   }
 
-  if (playerSlot == world.playerSlots.end() || shipSlots.size() != world.shipsPerPlayer ||
-      torpedoSlots.size() != world.shipsPerPlayer || baseSlot == world.bases.end())
+  if (playerSlot == world.playerSlots.end() || shipSlots.size() != world.shipsPerPlayer || torpedoSlots.size() != world.shipsPerPlayer
+      || baseSlot == world.baseStorage().end())
   {
     return std::nullopt;
   }
@@ -231,14 +192,17 @@ std::optional<PlayerId> joinTeam(World &world, TeamId team, std::string callSign
     player.callSign = std::move(callSign);
     player.joined = true;
     player.weapon = world.defaultWeapon;
-    player.shipId = world.nextEntityId++;
-    player.baseId = world.nextEntityId++;
+    player.shipId = world.allocateEntityId(EntityKind::Ship, static_cast<std::size_t>(shipSlots.front() - world.shipStorage().data()));
+    player.baseId = world.allocateEntityId(EntityKind::Base, static_cast<std::size_t>(baseSlot - world.baseStorage().begin()));
     std::vector<EntityId> shipIds{player.shipId};
-    std::vector<EntityId> torpedoIds{world.nextEntityId++};
+    std::vector<EntityId> torpedoIds{
+      world.allocateEntityId(EntityKind::Torpedo, static_cast<std::size_t>(torpedoSlots.front() - world.torpedoStorage().data()))};
     for (std::size_t index = 1; index < world.shipsPerPlayer; ++index)
     {
-      shipIds.push_back(world.nextEntityId++);
-      torpedoIds.push_back(world.nextEntityId++);
+      shipIds.push_back(
+        world.allocateEntityId(EntityKind::Ship, static_cast<std::size_t>(shipSlots[index] - world.shipStorage().data())));
+      torpedoIds.push_back(
+        world.allocateEntityId(EntityKind::Torpedo, static_cast<std::size_t>(torpedoSlots[index] - world.torpedoStorage().data())));
     }
     player.selectedShips = shipIds;
     player.selectedObject = player.shipId;
@@ -322,28 +286,47 @@ void removePlayer(World &world, PlayerId playerId)
   const auto player = **found;
   found->reset();
 
-  for (auto &slot : world.ships)
+  std::vector<EntityId> ownedShipIds;
+  std::vector<EntityId> ownedEntityIds;
+  for (const auto &slot : world.shipStorage())
   {
     if (slot && slot->owner == playerId && slot->playerControlled)
     {
-      slot.reset();
+      ownedShipIds.push_back(slot->id);
+      ownedEntityIds.push_back(slot->id);
     }
   }
-
-  for (auto &slot : world.bases)
+  for (const auto &slot : world.baseStorage())
   {
     if (slot && slot->id == player.baseId)
     {
-      slot.reset();
+      ownedEntityIds.push_back(slot->id);
     }
   }
-
-  for (auto &slot : world.torpedoes)
+  for (const auto &slot : world.torpedoStorage())
   {
     if (slot && slot->owner == playerId)
     {
-      slot.reset();
+      ownedEntityIds.push_back(slot->id);
     }
+  }
+
+  std::vector<EntityId> projectileIds;
+  for (const auto &projectile : world.projectiles())
+  {
+    if (std::ranges::find(ownedShipIds, projectile.shooter) != ownedShipIds.end())
+    {
+      projectileIds.push_back(projectile.id);
+    }
+  }
+
+  for (const auto id : projectileIds)
+  {
+    (void)world.despawn(id);
+  }
+  for (const auto id : ownedEntityIds)
+  {
+    (void)world.despawn(id);
   }
 }
 

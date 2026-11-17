@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <ranges>
 
 namespace spasim::detail
 {
@@ -57,6 +58,14 @@ std::optional<TeamId> teamOf(const World &world, EntityId id)
     return torpedo->team;
   }
 
+  if (world.entityKind(id) == EntityKind::WeaponProjectile)
+  {
+    if (const auto *projectile = world.findWeaponProjectile(id))
+    {
+      return projectile->team;
+    }
+  }
+
   return std::nullopt;
 }
 
@@ -80,6 +89,14 @@ Vec3 *positionOf(World &world, Target target)
   if (auto *torpedo = world.findTorpedo(target.id))
   {
     return &torpedo->position;
+  }
+
+  if (world.entityKind(target.id) == EntityKind::WeaponProjectile)
+  {
+    if (auto *projectile = world.findWeaponProjectile(target.id))
+    {
+      return &projectile->position;
+    }
   }
 
   return nullptr;

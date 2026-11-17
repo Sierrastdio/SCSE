@@ -112,29 +112,29 @@ GameRules::GameRules()
       .name = "MG",
       .energyCost = 1.0,
       .damage = 9.0,
-      .range = 800.0,
-      .projectileSpeed = 10.0,
+      .range = 500.0,
+      .projectileSpeed = 15.0,
       .explosive = false,
       .splashRadius = 0.0,
       .aim = {.maximumLeadSeconds = 60.0, .maximumHorizontalFiringAngleDegrees = 170.0, .maximumVerticalFiringAngleDegrees = 180.0},
     },
     {
       .name = "C1",
-      .energyCost = 20.0,
+      .energyCost = 70.0,
       .damage = 50.0,
-      .range = 2500.0,
-      .projectileSpeed = 100.0,
+      .range = 1000.0,
+      .projectileSpeed = 40.0,
       .explosive = true,
       .splashRadius = 10.0,
       .aim = {.maximumLeadSeconds = 60.0, .maximumHorizontalFiringAngleDegrees = 160.0, .maximumVerticalFiringAngleDegrees = 150.0},
     },
     {
       .name = "C2",
-      .energyCost = 50.0,
+      .energyCost = 150.0,
       .damage = 125.0,
-      .range = 3000.0,
-      .projectileSpeed = 500.0,
-      .explosive = false,
+      .range = 1700.0,
+      .projectileSpeed = 50.0,
+      .explosive = true,
       .splashRadius = 15.0,
       .aim = {.maximumLeadSeconds = 60.0, .maximumHorizontalFiringAngleDegrees = 100.0, .maximumVerticalFiringAngleDegrees = 100.0},
     },
@@ -142,10 +142,10 @@ GameRules::GameRules()
       .name = "B1",
       .energyCost = 5.0,
       .damage = 10.0,
-      .range = 400.0,
-      .projectileSpeed = 5.0,
-      .explosive = false,
-      .splashRadius = 0.0,
+      .range = 380.0,
+      .projectileSpeed = 8.0,
+      .explosive = true,
+      .splashRadius = 18.0,
       .aim = {.maximumLeadSeconds = 60.0, .maximumHorizontalFiringAngleDegrees = 180.0, .maximumVerticalFiringAngleDegrees = 150.0},
     },
   };
@@ -182,8 +182,8 @@ GameRules::GameRules()
   for (std::size_t i = 0; i < teams.size(); ++i)
   {
     const auto &team = teams[i];
-    if (team.id != i || team.homePlanet >= planets.size() || team.startingOrbitLevel > levelCount
-        || !std::isfinite(team.baseOffset.x) || !std::isfinite(team.baseOffset.y) || !std::isfinite(team.baseOffset.z))
+    if (team.id != i || team.homePlanet >= planets.size() || team.startingOrbitLevel > levelCount || !std::isfinite(team.baseOffset.x)
+        || !std::isfinite(team.baseOffset.y) || !std::isfinite(team.baseOffset.z))
     {
       throw std::logic_error("The built-in scenario has invalid team settings.");
     }
@@ -229,7 +229,6 @@ void GameRules::applyScenario(World &world) const
   const auto shipCapacity = playerCapacity * shipsPerPlayer + practiceShips.size();
   const auto torpedoCapacity = playerCapacity * shipsPerPlayer;
   world.nextEntityId = firstEntityId;
-  world.entityIdStart = firstEntityId;
   world.playerIdStart = firstPlayerId;
   world.playersPerTeam = playersPerTeam;
   world.shipsPerPlayer = shipsPerPlayer;
@@ -250,22 +249,22 @@ void GameRules::applyScenario(World &world) const
   world.teams = teams;
   world.planets = planets;
   world.weapons = weapons;
+  world.tick = 0;
+  world.elapsedSeconds = 0.0;
+  world.resetEntityStorage(shipCapacity, playerCapacity, torpedoCapacity, firstEntityId);
   world.playerSlots.resize(playerCapacity);
-  world.ships.resize(shipCapacity);
-  world.bases.resize(playerCapacity);
-  world.torpedoes.resize(torpedoCapacity);
 
   for (std::size_t i = 0; i < practiceShips.size(); ++i)
   {
     const auto &definition = practiceShips[i];
     Ship target = practiceShipDefaults;
-    target.id = world.nextEntityId++;
+    target.id = world.allocateEntityId(EntityKind::Ship, i);
     target.owner = kNoPlayer;
     target.team = definition.team;
     target.playerControlled = false;
     target.name = definition.name;
     target.position = definition.position;
-    world.ships[i] = std::move(target);
+    world.shipStorage()[i] = std::move(target);
   }
 }
 

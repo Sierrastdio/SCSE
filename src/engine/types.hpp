@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <random>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -48,6 +49,20 @@ enum class ObjectKind : std::uint8_t
   Ship,
   Base,
   Torpedo
+};
+
+enum class EntityKind : std::uint8_t
+{
+  Ship,
+  Base,
+  Torpedo,
+  WeaponProjectile
+};
+
+struct EntityRef
+{
+  EntityKind kind{};
+  std::size_t slot{};
 };
 
 enum class AccelerationMode : std::uint8_t
@@ -248,10 +263,6 @@ struct World
   std::vector<Team> teams;
   std::vector<Planet> planets;
   std::vector<std::optional<Player>> playerSlots;
-  std::vector<std::optional<Ship>> ships;
-  std::vector<std::optional<Base>> bases;
-  std::vector<std::optional<Torpedo>> torpedoes;
-  std::vector<WeaponProjectile> weaponProjectiles;
   std::size_t playersPerTeam{};
   std::size_t shipsPerPlayer{};
   std::uint64_t tick{};
@@ -260,7 +271,6 @@ struct World
   std::mt19937_64 random;
   std::optional<std::uint64_t> randomSeedOverride;
   EntityId nextEntityId{};
-  EntityId entityIdStart{};
   PlayerId playerIdStart{};
   WeaponId defaultWeapon{};
   bool friendlyFire{};
@@ -283,7 +293,33 @@ struct World
   [[nodiscard]] Torpedo *findTorpedo(EntityId id) noexcept;
   [[nodiscard]] const Torpedo *findTorpedo(EntityId id) const noexcept;
   [[nodiscard]] const Base *findBase(EntityId id) const noexcept;
+  [[nodiscard]] std::optional<EntityKind> entityKind(EntityId id) const noexcept;
+  [[nodiscard]] EntityId allocateEntityId(EntityKind kind, std::size_t slot);
+  void resetEntityStorage(std::size_t shipCapacity, std::size_t baseCapacity, std::size_t torpedoCapacity, EntityId firstEntityId);
+  [[nodiscard]] Ship *spawnShip(Ship ship);
+  [[nodiscard]] Base *spawnBase(Base base);
+  [[nodiscard]] Torpedo *spawnTorpedo(Torpedo torpedo);
+  [[nodiscard]] WeaponProjectile *spawnWeaponProjectile(WeaponProjectile projectile);
+  [[nodiscard]] bool despawn(EntityId id) noexcept;
+  [[nodiscard]] std::span<std::optional<Ship>> shipStorage() noexcept { return ships_; }
+  [[nodiscard]] std::span<const std::optional<Ship>> shipStorage() const noexcept { return ships_; }
+  [[nodiscard]] std::span<std::optional<Base>> baseStorage() noexcept { return bases_; }
+  [[nodiscard]] std::span<const std::optional<Base>> baseStorage() const noexcept { return bases_; }
+  [[nodiscard]] std::span<std::optional<Torpedo>> torpedoStorage() noexcept { return torpedoes_; }
+  [[nodiscard]] std::span<const std::optional<Torpedo>> torpedoStorage() const noexcept { return torpedoes_; }
+  [[nodiscard]] const std::vector<WeaponProjectile> &projectiles() const noexcept { return weaponProjectiles_; }
+  void replaceProjectiles(std::vector<WeaponProjectile> projectiles);
+  [[nodiscard]] WeaponProjectile *findWeaponProjectile(EntityId id) noexcept;
+  [[nodiscard]] const WeaponProjectile *findWeaponProjectile(EntityId id) const noexcept;
   [[nodiscard]] std::size_t activePlayerCount(TeamId team) const noexcept;
+
+private:
+  void unregisterEntity(EntityId id) noexcept;
+  std::vector<std::optional<EntityRef>> entityRegistry_;
+  std::vector<std::optional<Ship>> ships_;
+  std::vector<std::optional<Base>> bases_;
+  std::vector<std::optional<Torpedo>> torpedoes_;
+  std::vector<WeaponProjectile> weaponProjectiles_;
 };
 
 [[nodiscard]] const char *toString(ObjectKind value) noexcept;

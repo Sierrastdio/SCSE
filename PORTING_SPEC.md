@@ -126,7 +126,7 @@ The simulation engine currently exists in `src/engine/`; built-in scenario and p
 - `world.cpp`: scenario-sized world slots, deterministic random generator, team join/leave and entity lookup.
 - `engine.cpp` and `actions.hpp`: fixed-step dispatch and typed `WorldCommand` actions.
 - `movement.cpp`, `navigation.cpp`, `combat.cpp`, `economy.cpp`, and `math.cpp`: engine systems grouped by behavior.
-- `src/console/`: terminal sign-on, text command parsing, and JSON debug snapshots, kept outside the reusable engine.
+- `src/console/`: terminal sign-on, text command parsing, kept outside the reusable engine.
 - `src/rules/game_rules.hpp`: typed scenario and gameplay rule model.
 - `src/rules/scenario.cpp`: typed scenario defaults and initial world setup.
 - `src/rules/calculations/`: calculations grouped by orbit, flight control, and weapon aiming.
@@ -142,7 +142,6 @@ The console `turn x y z` input is interpreted as a desired forward direction vec
 
 The built-in C++ rules provide the sphere-of-influence radius, orbit-level radius fractions, orbit-transfer radial step policy, approach acceleration/braking decisions, throttle speed tiers, target aim direction/intercept policy, and maximum orbit level allowed by each ship class. Console `select` chooses one or more player-owned ships; `target` assigns an entity target per selected ship, and finite-speed projectile profiles use the intercept calculation. Direct flight commands can be issued to the current selection. `goal <planet> [level]` follows a scripted spiral from its actual position when it enters the influence sphere; before capture, its speed profile brakes according to stopping distance. `orbit <level>` transfers between levels while in orbit. These maneuvers are gameplay prototypes, not source-derived SPASIM behavior. Class limits, speed tiers, aim prediction, and orbit values are provisional and editable in `src/rules/scenario.cpp`.
 
-For debug rendering, the console layer exports entity/planet state as JSON without adding a graphics dependency to the engine. Console command `snapshot` enables 10 Hz writes to `debug/world.json`; `snapshot off` disables them. `tools/render_debug.py` is a standard-library Tkinter renderer with freely orbitable isometric and orthographic plane views, entity markers, ship heading and torpedo velocity vectors, predicted straight paths and ship trails. Right mouse drag controls orbit azimuth/elevation; Shift+right-drag pans the camera across the screen plane.
 
 Current console-playable operations include team sign-on, status/team/planet listings, multi-ship selection and target orders, heading/acceleration, planet goals, four selectable weapon profiles, forward-arc phasor firing, per-ship torpedo slots and launch/detonation, base-range repair, planet loading, nearby entity resource transfer, and alliance toggles. These provide a coherent playable shell, but do not yet reproduce the whole 36-key menu or NOS station/network session behavior.
 

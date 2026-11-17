@@ -23,10 +23,6 @@ $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
 .\build-ucrt\scse.exe
 ```
 
-```powershell
-python tools/render_debug.py --watch
-```
-
 The PowerShell line above adds the UCRT64 runtime directory to `PATH` for that terminal.
 
 ### VS Code CMake Tools
@@ -39,7 +35,7 @@ The prototype console program loads its built-in C++ scenario and advances the c
 
 ## Current console commands
 
-`help`, `status`, `teams`, `planets`, `tick` (or `wait`), `turn <x> <y> <z>`, `accel`, `decel`, `coast`, `throttle <1-4>`, `goal <planet> [orbit-level]`, `orbit <level>`, `class <small|medium|large>`, `select <ship-id> [ship-id ...]`, `target <entity-id>`, `weapon <profile>`, `shoot [power]`, `launch <energy>`, `detonate`, `repair <amount>`, `load <energy|material> <amount> <planet>`, `transfer <energy|material> <amount> <entity-id>`, `ally <team> <team>`, `snapshot [off]`, `pause`, `resume`, `speed [multiplier]`, and `exit`. Team and weapon ranges are shown by `help` from the loaded scenario. The simulation advances continuously; `tick` or `wait` advances one step immediately.
+`help`, `status`, `teams`, `planets`, `tick` (or `wait`), `turn <x> <y> <z>`, `accel`, `decel`, `coast`, `throttle <1-4>`, `goal <planet> [orbit-level]`, `orbit <level>`, `class <small|medium|large>`, `select <ship-id> [ship-id ...]`, `target <entity-id>`, `weapon <profile>`, `shoot [power]`, `launch <energy>`, `detonate`, `repair <amount>`, `load <energy|material> <amount> <planet>`, `transfer <energy|material> <amount> <entity-id>`, `ally <team> <team>`, `pause`, `resume`, `speed [multiplier]`, and `exit`. Team and weapon ranges are shown by `help` from the loaded scenario. The simulation advances continuously; `tick` or `wait` advances one step immediately.
 
 Use these short command names consistently in scripts and documentation. `?` and `s` are shortcuts for `help` and `status`.
 
@@ -47,7 +43,7 @@ Use these short command names consistently in scripts and documentation. `?` and
 
 `teams` lists entity IDs, teams, positions, and shields for ships and bases. Each player starts with two controllable ships; the starter world also has two stationary practice ships per team. `select <ship-id> [ship-id ...]` chooses one or more of your ships; both controllable ships are selected initially. `target <entity-id>` assigns the target to every selected ship, and `shoot` fires from the selected ships individually. Direct flight commands (`turn`, `accel`, `decel`, `coast`, and `throttle`) also apply to the selection. Each ship has its own torpedo slot, so `launch` and `detonate` also operate independently on selected ships. To assign different targets, use `select <one-ship-id>` followed by `target <target-id>` for each ship. Run `teams` to see ship IDs and each ship's current `targeting` ID. You may only select ships you control. `T<number>` refers to the first practice ship for that team; use the entity IDs from `teams` to target the additional ships. C++ calculates the desired aim direction each tick while applying each ship's turn rate. Instant weapons aim directly; finite-speed projectiles use the intercept calculation. Firing succeeds per ship when the target is in range and within the forward arc.
 
-`goal <planet> [level]` engages navigation and uses a stopping-distance speed profile to brake before the planet's sphere of influence, then starts a scripted spiral from the ship's actual position toward the requested orbit. It does not reset the ship to level 1 first. `orbit <level>` starts an automatic transfer while already orbiting. The C++ integrator maintains circular motion during transfers and holds ships on their selected orbit radius after arrival. Level 1 is the outer boundary; higher levels are closer to the planet. `class` changes the test ship class. Orbit spacing, influence radius, transfer behavior, acceleration, braking, speed tiers, and ship-class limits are defined in `src/rules/scenario.cpp`. Initial ship-class limits are small=4, medium=2, and large=1; these are prototype tuning values. Edit the C++ scenario and rebuild to change them. `turn` rotates the ship's nose without changing inertial velocity; `accel` thrusts along the nose up to the selected speed tier, `decel` opposes current velocity, and `coast` coasts. `throttle 1`–`throttle 4` sets a speed cap from 0.5 to 2.5 times the L1 circular speed. With current planet values, the caps are approximately 0.71, 1.41, 2.12, and 3.54 units/second. The default is stage 3. Goal autopilot uses the selected cap and automatically switches between accelerating, coasting, and braking. At the speed cap, it can still use lateral thrust to steer the velocity direction. `status` distinguishes facing from inertial velocity and reports the active orbit, throttle tier, and orbit radius. The debug renderer draws the gravity boundary and orbit levels.
+`goal <planet> [level]` engages navigation and uses a stopping-distance speed profile to brake before the planet's sphere of influence, then starts a scripted spiral from the ship's actual position toward the requested orbit. It does not reset the ship to level 1 first. `orbit <level>` starts an automatic transfer while already orbiting. The C++ integrator maintains circular motion during transfers and holds ships on their selected orbit radius after arrival. Level 1 is the outer boundary; higher levels are closer to the planet. `class` changes the test ship class. Orbit spacing, influence radius, transfer behavior, acceleration, braking, speed tiers, and ship-class limits are defined in `src/rules/scenario.cpp`. Initial ship-class limits are small=4, medium=2, and large=1; these are prototype tuning values. Edit the C++ scenario and rebuild to change them. `turn` rotates the ship's nose without changing inertial velocity; `accel` thrusts along the nose up to the selected speed tier, `decel` opposes current velocity, and `coast` coasts. `throttle 1`–`throttle 4` sets a speed cap from 0.5 to 2.5 times the L1 circular speed. With current planet values, the caps are approximately 0.71, 1.41, 2.12, and 3.54 units/second. The default is stage 3. Goal autopilot uses the selected cap and automatically switches between accelerating, coasting, and braking. At the speed cap, it can still use lateral thrust to steer the velocity direction. `status` distinguishes facing from inertial velocity and reports the active orbit, throttle tier, and orbit radius.
 
 `speed` reports the current playback multiplier; `speed 1000` runs up to 1000 times faster, and `speed 1` restores real-time playback. Valid values range from 0.1 to 10000. The physics timestep remains fixed, so actual fast-forward speed depends on CPU capacity.
 
@@ -59,22 +55,10 @@ Weapon numbering follows the source roster: 1 Aggstroms, 2 Fouriers, 3 Diffracti
 
 Edit the scenario data in `src/rules/scenario.cpp` to change world timing and seed, players per team, ships per player, player/ship/base/torpedo defaults, team names and home planets, ship classes and spawn/orbit settings, team base placement (`Team::baseOffset`, relative to the team's home planet), planet coordinates/gravity/orbit ranges/starting values, weapon profiles, practice targets, alliances, and ID starting values. Base health, shields, resources, and collision radius are set in `baseDefaults`; each player's base is created at its team's configured home-planet offset. Each weapon profile includes its own damage, range, projectile speed, lead limit, and maximum horizontal/vertical firing-angle errors. These are maximum deviations from the ship's facing; 180 degrees permits any angle on that axis. Team, planet, and weapon IDs must remain zero-based and contiguous. Rebuild after changing values.
 
-## Debug renderer
-
-The Python viewer uses Tkinter and needs no pip packages. On Arch Linux, install Python and Tkinter's optional Tk dependency with `sudo pacman -S python tk` ([Arch Python package](https://archlinux.org/packages/core/x86_64/python/) lists `tk` as optional for Tkinter). Run it from a graphical terminal. In one game session, enter `snapshot`; in a second terminal, from the repository directory, run:
-
-```sh
-python tools/render_debug.py --watch
-```
-
-The game writes `debug/world.json` relative to its working directory. If the viewer is run without a path, it checks the repository's `debug/` and CMake build directories and follows the newest snapshot. Pass a path explicitly when needed, for example `python tools/render_debug.py build/debug/world.json --watch`.
-
-The viewer draws 3D axes, planets, ships, bases, torpedoes, team colors, facing/velocity arrows, predicted straight-line travel and recent ship trails. In isometric view, drag with the **right mouse button** to orbit freely; hold **Shift** while right-dragging to pan the camera across the view. Keys `2`–`4` switch to XY, XZ and YZ orthographic views, and `1` returns to orbit view. Use the mouse wheel or `+`/`-` to zoom. Enter `snapshot off` to stop writing live state.
-
 ## Project layout
 
 - `src/engine/`: current world state, typed actions, movement, navigation, combat, economy, and simulation loop.
-- `src/console/`: terminal front end, text-command parser, and JSON debug snapshot writer.
+- `src/console/`: terminal front end and text-command parser.
 - `src/rules/game_rules.hpp`: typed scenario and gameplay rule model.
 - `src/rules/scenario.cpp`: built-in typed scenario data and world initialization.
 - `src/rules/calculations/`: orbit, flight-control, and weapon-aim calculations, separated by use.
@@ -83,7 +67,7 @@ Weapon profiles contain shared per-weapon tuning. Ship-specific bonuses or mount
 
 ## Core boundary
 
-The current engine code can be used by another front end through `engine/engine.hpp` and `engine/world.hpp`: construct a `Simulation`, issue `WorldCommand` actions through `Simulation::execute`, and advance it with `Simulation::step`. The terminal application, text parser, and debug snapshot format live in `console/`. These interfaces may change as the project develops.
+The current engine code can be used by another front end through `engine/engine.hpp` and `engine/world.hpp`: construct a `Simulation`, issue `WorldCommand` actions through `Simulation::execute`, and advance it with `Simulation::step`. The terminal application and text parser live in `console/`. These interfaces may change as the project develops.
 
 The current movement, initial resource values and weapon profiles are provisional because legacy source notation and shared initial data are not recoverable from the listing alone. Planet growth/revolt is still inactive. See `PORTING_SPEC.md` for fidelity status.
 

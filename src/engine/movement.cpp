@@ -265,8 +265,8 @@ void turnTowardGoal(World &world, const Player *player, Ship &ship, double dt, c
       const auto weaponIndex = static_cast<std::size_t>(ship.weapon);
 
       const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
-      const Vec3 aimDirection = rules.weaponAimDirection(relativePosition, targetVelocity,
-        weapon ? weapon->projectileSpeed : 0.0, weapon ? weapon->aim : WeaponAimSettings{});
+      const Vec3 aimDirection = rules.weaponAimDirection(relativePosition, targetVelocity, weapon ? weapon->projectileSpeed : 0.0,
+        weapon ? weapon->aim : WeaponAimSettings{});
 
       ship.desiredOrientation = orientationToward(aimDirection);
     }
@@ -535,7 +535,7 @@ Vec3 gravityAcceleration(const World &world, const Vec3 &position) { return grav
 
 void updateMovement(World &world, const GameRules &rules)
 {
-  for (auto &slot : world.ships)
+  for (auto &slot : world.shipStorage())
   {
     if (!slot || !slot->playerControlled)
     {

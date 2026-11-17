@@ -1,9 +1,9 @@
 #include "console/command_parser.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
-#include <algorithm>
 #include <initializer_list>
 #include <limits>
 #include <sstream>
@@ -24,14 +24,22 @@ bool parseEntityIdToken(std::string token, std::uint32_t &id)
   token = lower(std::move(token)); // 입력을 소문자화
 
   if (token.starts_with("ship-")) // ship-로 시작하면 앞의 5글자를 제거. 예: ship-42 → 42
+  {
     token.erase(0, 5);
+  }
   else if (token.starts_with('t') && token.size() > 1) // t로 시작하고 뒤에 글자가 더 있으면 맨 앞의 t를 제거. 예: t42 → 42
+  {
     token.erase(0, 1);
+  }
 
   if (token.starts_with('#')) // 남은 문자열이 #로 시작하면 그 문자도 제거. 예: ship-#42 → 42
+  {
     token.erase(0, 1);
+  }
   if (token.empty()) // 접두사를 제거한 뒤 아무것도 남지 않았다면 ID로 읽을 수 없으므로 실패를 반환.
+  {
     return false;
+  }
 
   const auto [end, error] = std::from_chars(token.data(), token.data() + token.size(), id);
   // token.data(): 문자열의 첫 문자 위치
@@ -66,61 +74,113 @@ Command parseCommand(std::string_view line)
   // 명령어를 종류별로 구분합니다.
   Command result;
   if (commandName == "help" || commandName == "?")
+  {
     result.kind = CommandKind::Help;
+  }
   else if (commandName == "status" || commandName == "s")
+  {
     result.kind = CommandKind::Status;
+  }
   else if (commandName == "teams")
+  {
     result.kind = CommandKind::Teams;
+  }
   else if (commandName == "planets")
+  {
     result.kind = CommandKind::Planets;
+  }
   else if (commandName == "tick" || commandName == "wait")
+  {
     result.kind = CommandKind::Tick;
+  }
   else if (commandName == "turn")
+  {
     result.kind = CommandKind::Turn;
+  }
   else if (commandName == "accel")
+  {
     result.kind = CommandKind::Accelerate;
+  }
   else if (commandName == "decel")
+  {
     result.kind = CommandKind::Brake;
+  }
   else if (commandName == "coast")
+  {
     result.kind = CommandKind::Cruise;
+  }
   else if (commandName == "throttle")
+  {
     result.kind = CommandKind::SetThrottleLevel;
+  }
   else if (commandName == "goal")
+  {
     result.kind = CommandKind::SetGoal;
+  }
   else if (commandName == "orbit")
+  {
     result.kind = CommandKind::SetOrbitLevel;
+  }
   else if (commandName == "class")
+  {
     result.kind = CommandKind::SetShipClass;
+  }
   else if (commandName == "target")
+  {
     result.kind = CommandKind::Target;
+  }
   else if (commandName == "select")
+  {
     result.kind = CommandKind::SelectShips;
+  }
   else if (commandName == "shoot")
+  {
     result.kind = CommandKind::Fire;
+  }
   else if (commandName == "launch")
+  {
     result.kind = CommandKind::FireTorpedo;
+  }
   else if (commandName == "detonate")
+  {
     result.kind = CommandKind::Detonate;
+  }
   else if (commandName == "weapon")
+  {
     result.kind = CommandKind::SetWeapon;
+  }
   else if (commandName == "repair")
+  {
     result.kind = CommandKind::Repair;
+  }
   else if (commandName == "transfer")
+  {
     result.kind = CommandKind::Transfer;
+  }
   else if (commandName == "load")
+  {
     result.kind = CommandKind::Load;
+  }
   else if (commandName == "ally")
+  {
     result.kind = CommandKind::Ally;
+  }
   else if (commandName == "pause")
+  {
     result.kind = CommandKind::Pause;
+  }
   else if (commandName == "resume")
+  {
     result.kind = CommandKind::Resume;
+  }
   else if (commandName == "speed")
+  {
     result.kind = CommandKind::Speed;
-  else if (commandName == "snapshot")
-    result.kind = CommandKind::Snapshot;
+  }
   else if (commandName == "exit")
+  {
     result.kind = CommandKind::Quit;
+  }
 
   std::string first;
   std::string second;
@@ -139,7 +199,9 @@ Command parseCommand(std::string_view line)
 
   auto tryParseDouble = [](const std::string &text, double &value) {
     if (text.empty())
+    {
       return false;
+    }
     const auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
     return error == std::errc{} && end == text.data() + text.size();
   };
@@ -162,13 +224,12 @@ Command parseCommand(std::string_view line)
   else if (result.kind == CommandKind::SetGoal)
   {
     double target{};
-    result.hasTarget = tryParseDouble(first, target) &&
-                        target >= 1.0 &&
-                        target <= 256.0 &&
-                        std::floor(target) == target;
+    result.hasTarget = tryParseDouble(first, target) && target >= 1.0 && target <= 256.0 && std::floor(target) == target;
 
     if (result.hasTarget == true)
+    {
       result.target = static_cast<std::uint32_t>(target - 1.0);
+    }
     // result.hasTarget이 유효하면 입력값에서 1을 빼서 저장하는데,
     // 사용자 입력은 1부터 시작하고 내부 인덱스는 0부터 시작하기 때문이에요. 유효하지 않으면 저장하지 않음.
     // TODO: 그냥 사용자 입력토 타켓 0부터 시작하는것도 이후에 고려해볼만함.
@@ -184,13 +245,12 @@ Command parseCommand(std::string_view line)
   else if (result.kind == CommandKind::SetOrbitLevel)
   {
     double level{};
-    result.hasTarget = tryParseDouble(first, level) &&
-                        level >= 1.0 &&
-                        level <= kMaxOrbitLevels &&
-                        std::floor(level) == level;
+    result.hasTarget = tryParseDouble(first, level) && level >= 1.0 && level <= kMaxOrbitLevels && std::floor(level) == level;
 
     if (result.hasTarget)
+    {
       result.target = static_cast<std::uint32_t>(level);
+    }
   }
   else if (result.kind == CommandKind::Fire)
   {
@@ -210,7 +270,9 @@ Command parseCommand(std::string_view line)
     for (const auto &token : {first, second, third, fourth})
     {
       if (token.empty() || lower(token) == "ship")
+      {
         continue;
+      }
       if (parseEntityIdToken(token, result.target))
       {
         result.hasTarget = true;
@@ -223,26 +285,37 @@ Command parseCommand(std::string_view line)
     auto addShipId = [&](const std::string &token) {
       EntityId id{};
       if (parseEntityIdToken(token, id))
+      {
         result.shipIds.push_back(id);
+      }
       else
+      {
         result.hasInvalidShipId = true;
+      }
     };
     for (const auto &token : {first, second, third, fourth})
+    {
       if (!token.empty())
+      {
         addShipId(token);
+      }
+    }
     std::string token;
     while (input >> token)
+    {
       addShipId(token);
+    }
   }
   else if (result.kind == CommandKind::SetWeapon)
   {
     double weapon{};
-    result.hasTarget = tryParseDouble(first, weapon) && weapon >= 1.0 &&
-                       weapon <= static_cast<double>(std::numeric_limits<WeaponId>::max()) + 1.0 &&
-                       std::floor(weapon) == weapon;
+    result.hasTarget = tryParseDouble(first, weapon) && weapon >= 1.0
+                       && weapon <= static_cast<double>(std::numeric_limits<WeaponId>::max()) + 1.0 && std::floor(weapon) == weapon;
 
     if (result.hasTarget)
+    {
       result.target = static_cast<std::uint32_t>(weapon - 1.0);
+    }
   }
   else if (result.kind == CommandKind::Transfer || result.kind == CommandKind::Load)
   {
@@ -258,10 +331,6 @@ Command parseCommand(std::string_view line)
       result.hasTarget = false;
     }
   }
-  else if (result.kind == CommandKind::Snapshot)
-  {
-    result.text = first;
-  }
   else if (result.kind == CommandKind::Speed)
   {
     result.hasFirst = tryParseDouble(first, result.first);
@@ -269,13 +338,12 @@ Command parseCommand(std::string_view line)
   else if (result.kind == CommandKind::SetThrottleLevel)
   {
     double level{};
-    result.hasTarget = tryParseDouble(first, level) &&
-                        level >= 1.0 &&
-                        level <= 4.0 &&
-                        std::floor(level) == level;
+    result.hasTarget = tryParseDouble(first, level) && level >= 1.0 && level <= 4.0 && std::floor(level) == level;
 
     if (result.hasTarget)
+    {
       result.target = static_cast<std::uint32_t>(level);
+    }
   }
   return result;
 }

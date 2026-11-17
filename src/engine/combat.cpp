@@ -11,7 +11,7 @@ namespace
 
 void applyTorpedoBlast(World &world, const Torpedo &torpedo, double radius)
 {
-  for (auto &slot : world.ships)
+  for (auto &slot : world.shipStorage())
   {
     if (!slot || !slot->exists || slot->combat.destroyed || slot->owner == torpedo.owner
         || (torpedo.team < world.teams.size() && slot->team < world.teams.size()
@@ -165,10 +165,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   }
 
   const Vec3 aim = rules.weaponAimDirection(direction, targetVelocity - ship.velocity, weapon.projectileSpeed, weapon.aim);
-  ship.resources.energy -= cost;
-
-  world.weaponProjectiles.push_back({.id = world.nextEntityId++,
-    .shooter = ship.id,
+  (void)world.spawnWeaponProjectile({.shooter = ship.id,
     .target = targetId,
     .team = ship.team,
     .position = ship.position,
@@ -178,6 +175,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
     .collisionRadius = std::max(player.phasorDiameter * 0.5, 0.1),
     .remainingRange = weapon.range,
     .explosive = weapon.explosive});
+  ship.resources.energy -= cost;
 
   return {CommandStatus::Applied, "Weapon projectile launched."};
 }
@@ -199,6 +197,11 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const Fire
   if (torpedoSlot->exists)
   {
     return {CommandStatus::Invalid, "Your torpedo is already active."};
+  }
+
+  if (torpedoSlot->id != ship.torpedoId || world.entityKind(ship.torpedoId) != EntityKind::Torpedo)
+  {
+    return {CommandStatus::Invalid, "Ship torpedo ID is inconsistent with the entity registry."};
   }
 
   Vec3 aim = action.useShipFacing ? forwardVector(ship.orientation) : action.aim;
@@ -271,7 +274,7 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetW
 
 void updateTorpedoes(World &world)
 {
-  for (auto &slot : world.torpedoes)
+  for (auto &slot : world.torpedoStorage())
   {
     if (!slot || !slot->exists || slot->detonated)
     {
@@ -298,13 +301,15 @@ void updateTorpedoes(World &world)
 
     bool impact = false;
 
-    for (const auto &targetSlot : world.ships)
+    for (const auto &targetSlot : world.shipStorage())
     {
       if (!targetSlot || !targetSlot->exists || targetSlot->combat.destroyed || targetSlot->owner == slot->owner
           || (slot->team < world.teams.size() && targetSlot->team < world.teams.size()
               && std::ranges::find(world.teams[slot->team].allies, targetSlot->team) != world.teams[slot->team].allies.end()
               && !world.friendlyFire))
+      {
         continue;
+      }
 
       const Vec3 offset = slot->position - targetSlot->position;
       const double radius = slot->collisionRadius + targetSlot->collisionRadius;
@@ -330,12 +335,16 @@ void updateTorpedoes(World &world)
 void updateWeaponProjectiles(World &world)
 {
   const double dt = world.fixedStepSeconds;
-  std::erase_if(world.weaponProjectiles, [&](WeaponProjectile &projectile) {
+  std::vector<WeaponProjectile> survivors;
+  survivors.reserve(world.projectiles().size());
+  for (auto projectile : world.projectiles())
+  {
+    bool discarded = false;
     const Vec3 *targetPosition = positionOf(world, Target{Target::Kind::Entity, projectile.target});
 
     if (!targetPosition || dt <= 0.0 || projectile.remainingRange <= 0.0 || projectile.speed <= 1e-9)
     {
-      return true;
+      continue;
     }
 
     Vec3 targetVelocity{};
@@ -345,7 +354,7 @@ void updateWeaponProjectiles(World &world)
     {
       if (!targetShip->exists)
       {
-        return true;
+        continue;
       }
 
       targetVelocity = targetShip->velocity;
@@ -355,7 +364,7 @@ void updateWeaponProjectiles(World &world)
     {
       if (!targetBase->exists)
       {
-        return true;
+        continue;
       }
 
       targetRadius = targetBase->collisionRadius;
@@ -364,7 +373,7 @@ void updateWeaponProjectiles(World &world)
     {
       if (!targetTorpedo->exists)
       {
-        return true;
+        continue;
       }
 
       targetVelocity = targetTorpedo->velocity;
@@ -372,7 +381,7 @@ void updateWeaponProjectiles(World &world)
     }
     else
     {
-      return true;
+      continue;
     }
 
     const double stepSeconds = std::min(dt, projectile.remainingRange / projectile.speed);
@@ -388,14 +397,20 @@ void updateWeaponProjectiles(World &world)
     if (closestOffset.lengthSquared() <= hitRadius * hitRadius)
     {
       applyProjectileImpact(world, projectile);
-      return true;
+      discarded = true;
     }
-
-    projectile.position += projectileStep;
-    projectile.remainingRange -= projectile.speed * stepSeconds;
-
-    return projectile.remainingRange <= 0.0;
-  });
+    else
+    {
+      projectile.position += projectileStep;
+      projectile.remainingRange -= projectile.speed * stepSeconds;
+      discarded = projectile.remainingRange <= 0.0;
+    }
+    if (!discarded)
+    {
+      survivors.push_back(std::move(projectile));
+    }
+  }
+  world.replaceProjectiles(std::move(survivors));
 }
 
 } // namespace spasim::detail

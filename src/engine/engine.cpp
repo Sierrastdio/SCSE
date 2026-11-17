@@ -3,8 +3,8 @@
 #include "engine/detail.hpp"
 
 #include <algorithm>
-#include <type_traits>
 #include <stdexcept>
+#include <type_traits>
 #include <utility>
 
 namespace spasim
@@ -61,7 +61,7 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand &command
 
   auto *ship = world_.findShip(player->shipId);
 
-  if (!ship)
+  if (!ship && !std::holds_alternative<SetAlliances>(command))
   {
     return {CommandStatus::NotFound, "Player ship not found."};
   }
@@ -359,6 +359,10 @@ CommandResult Simulation::execute(PlayerId playerId, const WorldCommand &command
       }
       else
       {
+        if (!ship)
+        {
+          return {CommandStatus::NotFound, "This command requires an active player ship."};
+        }
         return detail::executeAction(world_, *player, *ship, action);
       }
     },

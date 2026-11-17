@@ -7,8 +7,8 @@ namespace spasim::detail
 
 CommandResult executeAction(World &, Player &player, Ship &ship, const SetHeading &action)
 {
-  if (!std::isfinite(action.direction.x) || !std::isfinite(action.direction.y) || !std::isfinite(action.direction.z) ||
-      action.direction.length() <= 1e-9)
+  if (!std::isfinite(action.direction.x) || !std::isfinite(action.direction.y) || !std::isfinite(action.direction.z)
+      || action.direction.length() <= 1e-9)
   {
     return {CommandStatus::Invalid, "Direction vector must be finite and non-zero."};
   }
@@ -127,7 +127,6 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetG
 
     return {
       CommandStatus::Applied, "Orbit autopilot engaged for level " + std::to_string(action.orbitLevel) + " from the current orbit."};
-
   }
 
   ship.goalPlanet = static_cast<PlanetId>(action.target.id);
@@ -157,7 +156,6 @@ CommandResult executeAction(World &world, Player &player, Ship &ship, const SetG
 
   return {CommandStatus::Applied,
     "Autopilot engaged: approaching the planet, then entering orbit level " + std::to_string(action.orbitLevel) + "."};
-
 }
 
 CommandResult executeAction(World &world, Player &, Ship &ship, const SetOrbitLevel &action, const GameRules &rules)
@@ -232,8 +230,8 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const SelectTarg
   const auto weaponIndex = static_cast<std::size_t>(ship.weapon);
 
   const WeaponProfile *weapon = weaponIndex < world.weapons.size() ? &world.weapons[weaponIndex] : nullptr;
-  const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity,
-    weapon ? weapon->projectileSpeed : 0.0, weapon ? weapon->aim : WeaponAimSettings{});
+  const Vec3 direction = rules.weaponAimDirection(relativePosition, targetVelocity, weapon ? weapon->projectileSpeed : 0.0,
+    weapon ? weapon->aim : WeaponAimSettings{});
 
   const bool navigationActive = ship.goalPlanet.has_value() || ship.orbitTransferTargetLevel.has_value();
 
@@ -246,7 +244,6 @@ CommandResult executeAction(World &world, Player &, Ship &ship, const SelectTarg
 
   return {CommandStatus::Applied,
     navigationActive ? "Target selected; navigation autopilot retains heading control." : "Target selected; ship is aiming at it."};
-
 }
 
 } // namespace spasim::detail

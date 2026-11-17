@@ -36,7 +36,6 @@ enum class CommandKind : std::uint8_t
   Pause,
   Resume,
   Speed,
-  Snapshot,
   Quit,
   Unknown
 };

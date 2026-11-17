@@ -1,14 +1,10 @@
 #include "console/terminal.hpp"
-#include "console/snapshot.hpp"
-
 #include "engine/world.hpp"
 
 #include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
-#include <fstream>
-#include <filesystem>
 #include <numbers>
 #include <sstream>
 #include <thread>
@@ -52,7 +48,6 @@ void ConsoleApp::printHelp() const
              "  ally <team 1-"
           << teamCount << "> <team 1-" << teamCount
           << ">\n"
-             "  snapshot [off]           write debug snapshots\n"
              "  pause / resume           pause or resume simulation\n"
              "  speed [0.1-10000]        set playback speed\n"
              "  exit                     quit\n"
@@ -81,7 +76,9 @@ void ConsoleApp::printStatus(PlayerId playerId) const
   const auto *player = simulation_.world().findPlayer(playerId);
   const auto *ship = player ? simulation_.world().findShip(player->shipId) : nullptr;
   if (!player || !ship)
+  {
     return;
+  }
   const double yaw = ship->orientation.yawDegrees * std::numbers::pi / 180.0;
   const double pitch = ship->orientation.pitchDegrees * std::numbers::pi / 180.0;
   output_ << std::fixed << std::setprecision(2) << player->callSign << " | " << simulation_.world().teams[player->team].name
@@ -98,13 +95,17 @@ void ConsoleApp::printStatus(PlayerId playerId) const
     const auto &planet = simulation_.world().planets[*ship->orbitingPlanet];
     output_ << "Orbiting: " << planet.name << " at level " << static_cast<int>(ship->orbitLevel);
     if (ship->orbitLevel > 0 && ship->orbitLevel <= planet.orbitLevelCount)
+    {
       output_ << " | radius " << ship->position.distanceTo(planet.position) << " / " << planet.orbitLevelRadii[ship->orbitLevel - 1];
+    }
     output_ << "\n";
   }
   else if (ship->goalPlanet && *ship->goalPlanet < simulation_.world().planets.size())
+  {
     output_ << "Navigation goal: " << simulation_.world().planets[*ship->goalPlanet].name << " (orbit level "
             << static_cast<int>(ship->goalOrbitLevel) << ")"
             << "\n";
+  }
   if (ship->orbitTransferTargetLevel)
   {
     output_ << "Orbit transfer in progress: level " << static_cast<int>(*ship->orbitTransferTargetLevel);
@@ -117,7 +118,9 @@ void ConsoleApp::printStatus(PlayerId playerId) const
     output_ << "\n";
   }
   if (ship->selectedTarget)
+  {
     output_ << "Combat target: entity " << *ship->selectedTarget << "\n";
+  }
   output_ << "Ship class: " << toString(ship->shipClass) << "\n";
 }
 
@@ -130,10 +133,12 @@ void ConsoleApp::printTeams() const
     output_ << static_cast<int>(team.id + 1) << ". " << team.name << " (" << world.activePlayerCount(team.id) << '/'
             << world.playersPerTeam << ")\n";
     bool practiceAliasPrinted = false;
-    for (const auto &slot : world.ships)
+    for (const auto &slot : world.shipStorage())
     {
       if (!slot || !slot->exists || slot->team != team.id)
+      {
         continue;
+      }
       const auto &ship = *slot;
       output_ << "  ship id=" << ship.id;
       if (!ship.playerControlled && !practiceAliasPrinted)
@@ -146,13 +151,17 @@ void ConsoleApp::printTeams() const
               << ship.position.y << ", " << ship.position.z << ")"
               << " shields=" << std::setprecision(0) << ship.combat.shields << " hull=" << ship.combat.hull - ship.combat.hullDamage;
       if (ship.selectedTarget)
+      {
         output_ << " targeting=" << *ship.selectedTarget;
+      }
       output_ << '\n';
     }
-    for (const auto &slot : world.bases)
+    for (const auto &slot : world.baseStorage())
     {
       if (!slot || !slot->exists || slot->team != team.id)
+      {
         continue;
+      }
       output_ << "  base id=" << slot->id << " at (" << std::fixed << std::setprecision(0) << slot->position.x << ", "
               << slot->position.y << ", " << slot->position.z << ")\n";
     }
@@ -185,9 +194,13 @@ WorldCommand ConsoleApp::toWorldCommand(const Command &command, PlayerId) const
     case CommandKind::SetOrbitLevel: return SetOrbitLevel{static_cast<std::uint8_t>(command.target)};
     case CommandKind::SetShipClass:
       if (command.text == "small")
+      {
         return SetShipClass{ShipClass::Small};
+      }
       if (command.text == "medium")
+      {
         return SetShipClass{ShipClass::Medium};
+      }
       return SetShipClass{ShipClass::Large};
     case CommandKind::SelectShips: return SelectShips{command.shipIds};
     case CommandKind::Target: return SelectTarget{Target{Target::Kind::Entity, command.target}};
@@ -216,7 +229,9 @@ void ConsoleApp::inputWorker()
       inputQueue_.push(std::move(line));
     }
     if (shouldQuit)
+    {
       break;
+    }
   }
   inputFinished_.store(true);
 }
@@ -225,7 +240,9 @@ bool ConsoleApp::pollLine(std::string &line)
 {
   std::scoped_lock lock(inputMutex_);
   if (inputQueue_.empty())
+  {
     return false;
+  }
   line = std::move(inputQueue_.front());
   inputQueue_.pop();
   return true;
@@ -236,7 +253,9 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
   auto execute = [&](const WorldCommand &action) {
     const auto result = simulation_.execute(playerId, action);
     if (!result.message.empty())
+    {
       output_ << result.message << '\n';
+    }
   };
   switch (command.kind)
   {
@@ -246,15 +265,23 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
     case CommandKind::Planets: printPlanets(); break;
     case CommandKind::Turn:
       if (!command.hasFirst || !command.hasSecond || !command.hasThird)
+      {
         output_ << "Usage: turn <x> <y> <z> (non-zero direction vector)\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::SetThrottleLevel:
       if (!command.hasTarget)
+      {
         output_ << "Usage: throttle <1-4>\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::Accelerate:
     case CommandKind::Brake:
@@ -277,8 +304,8 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
         output_ << "An amount is required.\n";
         break;
       }
-      if ((command.kind == CommandKind::Transfer || command.kind == CommandKind::Load) &&
-          (!command.hasFirst || !command.hasTarget || (command.text != "energy" && command.text != "material")))
+      if ((command.kind == CommandKind::Transfer || command.kind == CommandKind::Load)
+          && (!command.hasFirst || !command.hasTarget || (command.text != "energy" && command.text != "material")))
       {
         output_ << "Usage: "
                 << (command.kind == CommandKind::Load ? "load <energy|material> <amount> <planet>"
@@ -306,38 +333,58 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
       break;
     case CommandKind::SetGoal:
       if (!command.hasTarget)
+      {
         output_ << "Usage: goal <planet> [orbit-level]\n";
+      }
       else if (
         command.hasSecond && (command.second < 1 || command.second > kMaxOrbitLevels || std::floor(command.second) != command.second))
+      {
         output_ << "Orbit level must be a whole number from 1 to 8.\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::SetOrbitLevel:
       if (!command.hasTarget)
+      {
         output_ << "Usage: orbit <level>\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::SetShipClass:
       if (command.text != "small" && command.text != "medium" && command.text != "large")
+      {
         output_ << "Usage: class <small|medium|large>\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::SetWeapon:
       if (!command.hasTarget)
+      {
         output_ << "Usage: weapon <1-" << simulation_.world().weapons.size() << ">\n";
+      }
       else if (command.target >= simulation_.world().weapons.size())
+      {
         output_ << "Weapon must be 1-" << simulation_.world().weapons.size() << ".\n";
+      }
       else
+      {
         execute(toWorldCommand(command, playerId));
+      }
       break;
     case CommandKind::Ally:
     {
-      if (!command.hasFirst || !command.hasSecond || std::floor(command.first) != command.first ||
-          std::floor(command.second) != command.second || command.first < 1 || command.first > simulation_.world().teams.size() ||
-          command.second < 1 || command.second > simulation_.world().teams.size())
+      if (!command.hasFirst || !command.hasSecond || std::floor(command.first) != command.first
+          || std::floor(command.second) != command.second || command.first < 1 || command.first > simulation_.world().teams.size()
+          || command.second < 1 || command.second > simulation_.world().teams.size())
       {
         output_ << "Usage: ally <team 1-" << simulation_.world().teams.size() << "> <team 1-" << simulation_.world().teams.size()
                 << ">\n";
@@ -356,48 +403,23 @@ void ConsoleApp::dispatch(PlayerId playerId, const Command &command)
       break;
     case CommandKind::Speed:
       if (!command.hasFirst)
+      {
         output_ << "Simulation speed: " << timeScale_ << "x. Usage: speed <0.1-10000>\n";
+      }
       else if (!std::isfinite(command.first) || command.first < 0.1 || command.first > 10000.0)
+      {
         output_ << "Speed must be between 0.1 and 10000.\n";
+      }
       else
       {
         timeScale_ = command.first;
         output_ << "Simulation speed set to " << timeScale_ << "x.\n";
       }
       break;
-    case CommandKind::Snapshot:
-      snapshotEnabled_ = command.text != "off";
-      if (snapshotEnabled_)
-      {
-        writeSnapshotFile();
-        output_ << "Live snapshots enabled at debug/world.json\n";
-      }
-      else
-        output_ << "Live snapshots disabled.\n";
-      break;
     case CommandKind::Tick: execute(TickWorld{}); break;
     case CommandKind::Unknown: output_ << "Unknown command. Type help.\n"; break;
     case CommandKind::Quit: break;
   }
-}
-
-void ConsoleApp::writeSnapshotFile() const
-{
-  std::error_code error;
-  std::filesystem::create_directories("debug", error);
-  if (error)
-  {
-    output_ << "Could not create debug directory: " << error.message() << '\n';
-    return;
-  }
-  std::ofstream snapshot("debug/world.json", std::ios::trunc);
-  if (!snapshot)
-  {
-    output_ << "Could not write debug/world.json.\n";
-    return;
-  }
-  console::writeSnapshot(simulation_.world(), snapshot);
-  snapshot << '\n';
 }
 
 int ConsoleApp::run()
@@ -406,7 +428,9 @@ int ConsoleApp::run()
   output_ << "SPASIM — 3D space simulation, C++ port\nChoose team (1-" << teamCount << "): ";
   std::string line;
   if (!std::getline(input_, line))
+  {
     return 0;
+  }
   int teamNumber{};
   try
   {
@@ -423,7 +447,9 @@ int ConsoleApp::run()
   }
   output_ << "Call sign (1-20 characters): ";
   if (!std::getline(input_, line))
+  {
     return 0;
+  }
   const auto playerId = joinTeam(simulation_.world(), static_cast<TeamId>(teamNumber - 1), line);
   if (!playerId)
   {
@@ -434,7 +460,6 @@ int ConsoleApp::run()
   std::thread reader(&ConsoleApp::inputWorker, this);
   using clock = std::chrono::steady_clock;
   auto previousWallTime = clock::now();
-  auto nextSnapshot = previousWallTime;
   double simulationAccumulator = 0.0;
   bool quit = false;
   while (!quit)
@@ -453,13 +478,10 @@ int ConsoleApp::run()
       }
     }
     else
-      simulationAccumulator = 0.0;
-
-    if (snapshotEnabled_ && now >= nextSnapshot)
     {
-      writeSnapshotFile();
-      nextSnapshot = now + std::chrono::milliseconds(100);
+      simulationAccumulator = 0.0;
     }
+
     bool printed = false;
     while (pollLine(line))
     {
@@ -470,19 +492,29 @@ int ConsoleApp::run()
         break;
       }
       if (command.kind == CommandKind::Tick)
+      {
         simulation_.step();
+      }
       else
+      {
         dispatch(*playerId, command);
+      }
       printed = true;
     }
     if (printed && !quit)
+    {
       output_ << "> ";
+    }
     if (inputFinished_.load() && !quit)
+    {
       quit = true;
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
   }
   if (reader.joinable())
+  {
     reader.join();
+  }
   removePlayer(simulation_.world(), *playerId);
   return 0;
 }
